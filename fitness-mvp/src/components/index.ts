@@ -7,3 +7,5 @@ export * from './SafeAreaWrapper';
 export * from './KeyboardAvoidingWrapper';
 export * from './Container';
 export * from './CameraView';
+export * from './WorkoutCard';
+export * from './RecipeCard';

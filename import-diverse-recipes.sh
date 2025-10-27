@@ -19,8 +19,7 @@ NC='\033[0m' # No Color
 
 # Function to check current recipe count
 check_count() {
-    echo "Checking current recipe count..."
-    docker exec -i camerafirst-fitness-postgres-1 psql -U fitnessuser -d fitness_mvp -c "SELECT COUNT(*) FROM recipe;" | grep -E '^\s*[0-9]+' | tr -d ' '
+    docker exec -i camerafirst-fitness-postgres-1 psql -U fitnessuser -d fitness_mvp -c "SELECT COUNT(*) FROM recipe;" 2>/dev/null | grep -E '^\s*[0-9]+' | tr -d ' '
 }
 
 # Function to import recipes
@@ -65,6 +64,7 @@ show_ingredient_stats() {
 echo "═══════════════════════════════════════"
 echo "🔍 Pre-Import Status"
 echo "═══════════════════════════════════════"
+echo "Checking current recipe count..."
 before_count=$(check_count)
 echo "Current recipe count: $before_count"
 echo ""
@@ -77,10 +77,11 @@ import_recipes
 echo "═══════════════════════════════════════"
 echo "✅ Post-Import Status"
 echo "═══════════════════════════════════════"
+echo "Checking current recipe count..."
 after_count=$(check_count)
 echo "New recipe count: $after_count"
 new_recipes=$((after_count - before_count))
-echo -e "${GREEN}📈 Added $new_recipes new recipes!${NC}"
+echo -e "${GREEN}📈 Added ${new_recipes} new recipes!${NC}"
 echo ""
 
 show_ingredient_stats
