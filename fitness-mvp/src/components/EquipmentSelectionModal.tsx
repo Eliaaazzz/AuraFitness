@@ -1,9 +1,10 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Dialog, Portal } from 'react-native-paper';
 
 import { Button, Text } from '@/components';
-import { radii, spacing } from '@/utils';
+import { spacing } from '@/utils';
 
 export type EquipmentChoice = 'bodyweight' | 'dumbbells' | 'mat';
 
@@ -15,70 +16,32 @@ type Props = {
   onRequestClose?: () => void;
 };
 
-export const EquipmentSelectionModal = ({ visible, lastChoice, onSelect, onSkip, onRequestClose }: Props) => {
-  return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onRequestClose}>
-      <Pressable style={styles.overlay} onPress={onRequestClose}>
-        <View style={styles.card}>
-          <Text variant="heading2" weight="bold" style={{ textAlign: 'center' }}>
-            What equipment do you see?
+export const EquipmentSelectionModal = ({ visible, lastChoice, onSelect, onSkip, onRequestClose }: Props) => (
+  <Portal>
+    <Dialog visible={visible} onDismiss={onRequestClose}>
+      <Dialog.Icon icon={() => <Feather name="settings" size={24} />} />
+      <Dialog.Title style={{ textAlign: 'center' }}>What equipment do you see?</Dialog.Title>
+      <Dialog.Content>
+        {lastChoice ? (
+          <Text variant="caption" style={{ textAlign: 'center', opacity: 0.8 }}>
+            Last time you chose: {lastChoice.charAt(0).toUpperCase() + lastChoice.slice(1)}
           </Text>
-          {lastChoice ? (
-            <Text variant="caption" style={{ textAlign: 'center', opacity: 0.8 }}>
-              Last time you chose: {lastChoice.charAt(0).toUpperCase() + lastChoice.slice(1)}
-            </Text>
-          ) : null}
-
-          <View style={styles.actions}>
-            <Pressable style={styles.option} onPress={() => onSelect('bodyweight')} accessibilityRole="button">
-              <Feather name="user" size={24} />
-              <Text weight="medium">Bodyweight</Text>
-            </Pressable>
-
-            <Pressable style={styles.option} onPress={() => onSelect('dumbbells')} accessibilityRole="button">
-              <Feather name="package" size={24} />
-              <Text weight="medium">Dumbbells</Text>
-            </Pressable>
-
-            <Pressable style={styles.option} onPress={() => onSelect('mat')} accessibilityRole="button">
-              <Feather name="grid" size={24} />
-              <Text weight="medium">Mat</Text>
-            </Pressable>
-          </View>
-
-          <Button title="Skip" variant="ghost" onPress={onSkip} />
+        ) : null}
+        <View style={styles.actions}>
+          <Button title="💪 Bodyweight" variant="outline" onPress={() => onSelect('bodyweight')} />
+          <Button title="🏋️ Dumbbells" variant="outline" onPress={() => onSelect('dumbbells')} />
+          <Button title="🧘 Mat" variant="outline" onPress={() => onSelect('mat')} />
         </View>
-      </Pressable>
-    </Modal>
-  );
-};
+      </Dialog.Content>
+      <Dialog.Actions>
+        <Button title="Skip" variant="text" onPress={onSkip} />
+      </Dialog.Actions>
+    </Dialog>
+  </Portal>
+);
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  card: {
-    width: '100%',
-    borderRadius: radii.xl,
-    backgroundColor: '#fff',
-    padding: spacing.xl,
-    gap: spacing.lg,
-  },
   actions: {
     gap: spacing.md,
   },
-  option: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.lg,
-    backgroundColor: 'rgba(0,0,0,0.04)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
 });
-

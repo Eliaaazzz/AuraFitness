@@ -129,9 +129,15 @@ export const AppNavigator = () => {
         {__DEV__ && (
           <Tab.Screen name="DesignSystem" component={DesignSystemScreen} options={{ title: 'Design' }} />
         )}
-        {__DEV__ && (
-          <Tab.Screen name="Results" component={ResultsScreen} options={{ title: 'Results' }} />
-        )}
+        <Tab.Screen
+          name="Results"
+          component={ResultsScreen}
+          options={{
+            title: 'Results',
+            // Hide from the tab bar but keep routable for navigation
+            tabBarButton: () => null,
+          }}
+        />
       </Tab.Navigator>
     </NavigationContainer>
   );

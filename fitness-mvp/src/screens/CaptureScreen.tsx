@@ -14,10 +14,11 @@ import {
 } from '@/components';
 import { formatDifficulty, formatMinutes, formatNumber, compressImage, getFileSize } from '@/utils';
 import { permissionStorage, preferenceStorage, useSaveRecipe, useSaveWorkout, useSavedRecipes, useSavedWorkouts, useUploadRecipe, useUploadWorkout } from '@/services';
+import { useNavigation } from '@react-navigation/native';
 import { useCameraPermission } from '@/hooks/useCameraPermission';
 import { useGalleryPermission } from '@/hooks/useGalleryPermission';
 import { EquipmentSelectionModal, EquipmentChoice } from '@/components/EquipmentSelectionModal';
-import { PermissionExplanationScreen } from './PermissionExplanationScreen';
+import { PermissionDialog } from '@/components/PermissionDialog';
 import { RecipeCard, WorkoutCard } from '@/types';
 
 const MAX_IMAGE_DIMENSION = 1024;
@@ -32,6 +33,7 @@ const measureImage = (uri: string) =>
   });
 
 export const CaptureScreen = () => {
+  const navigation = useNavigation<any>();
   const cameraPerm = useCameraPermission();
   const galleryPerm = useGalleryPermission();
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -143,6 +145,10 @@ export const CaptureScreen = () => {
       setWorkoutResults(data);
       setActiveTab('workouts');
       setErrorMessage(null);
+      // Navigate to Results screen with fresh results
+      setCapturedImage(null);
+      setEquipmentModalVisible(false);
+      navigation.navigate('Results', { workouts: data });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to fetch workouts.');
     } finally {
@@ -161,6 +167,10 @@ export const CaptureScreen = () => {
       setRecipeResults(data);
       setActiveTab('recipes');
       setErrorMessage(null);
+      // Navigate to Results with recipes
+      setCapturedImage(null);
+      setEquipmentModalVisible(false);
+      navigation.navigate('Results', { recipes: data });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to fetch recipes.');
     } finally {
@@ -267,13 +277,19 @@ export const CaptureScreen = () => {
   }
 
   if (!shouldShowCamera) {
+    // Render an empty shell with Material Dialog on top
     return (
-      <PermissionExplanationScreen
-        onRequestPermission={handleRequestCamera}
-        onOpenSettings={openSettings}
-        onChooseGallery={pickImageFromGallery}
-        permissionDenied={permissionDenied}
-      />
+      <SafeAreaWrapper>
+        <Container>
+          <PermissionDialog
+            visible
+            onRequestPermission={handleRequestCamera}
+            onOpenSettings={openSettings}
+            onChooseGallery={pickImageFromGallery}
+            permissionDenied={permissionDenied}
+          />
+        </Container>
+      </SafeAreaWrapper>
     );
   }
 
@@ -310,6 +326,12 @@ export const CaptureScreen = () => {
                 onPress={handleUploadRecipes}
                 loading={uploadRecipe.isPending}
               />
+            </View>
+            <View style={styles.equipmentRow}>
+              <Text variant="caption" style={{ opacity: 0.9 }}>
+                {equipmentChoice ? `Equipment: ${equipmentChoice}` : 'Equipment: (not set)' }
+              </Text>
+              <Button title="Change" variant="outline" size="small" onPress={() => setEquipmentModalVisible(true)} />
             </View>
             <View style={styles.tabRow}>
               <Button
@@ -358,6 +380,11 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 12,
+    justifyContent: 'space-between',
+  },
+  equipmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
   tabRow: {

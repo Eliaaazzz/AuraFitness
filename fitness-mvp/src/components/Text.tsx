@@ -1,12 +1,11 @@
 import React, { PropsWithChildren } from 'react';
-import { Text as RNText, TextProps as RNTextProps, useColorScheme } from 'react-native';
-
-import { getTheme, typography } from '@/utils';
+import { Text as PaperText } from 'react-native-paper';
+import { typography } from '@/utils';
 
 type TextVariant = 'heading1' | 'heading2' | 'body' | 'caption' | 'label';
 type TextWeight = 'regular' | 'medium' | 'bold';
 
-export interface TextProps extends RNTextProps {
+export interface TextProps extends React.ComponentProps<typeof PaperText> {
   variant?: TextVariant;
   color?: string;
   weight?: TextWeight;
@@ -28,27 +27,19 @@ const weightToFontFamily: Record<TextWeight, FontFamilyKey> = {
   bold: 'bold',
 };
 
-export const Text = ({ variant = 'body', weight = 'regular', color, style, children, ...rest }: PropsWithChildren<TextProps>) => {
-  const colorScheme = useColorScheme();
-  const theme = getTheme(colorScheme === 'dark' ? 'dark' : 'light');
-  const resolvedColor = color ?? theme.colors.textPrimary;
-  const fontFamily = theme.typography.fontFamily[weightToFontFamily[weight]];
-
-  return (
-    <RNText
-      accessibilityRole={rest.accessibilityRole}
-      {...rest}
-      style={[
-        {
-          color: resolvedColor,
-          fontFamily,
-          fontSize: variantStyles[variant].fontSize,
-          lineHeight: variantStyles[variant].lineHeight,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </RNText>
-  );
-};
+export const Text = ({ variant = 'body', weight = 'regular', color, style, children, ...rest }: PropsWithChildren<TextProps>) => (
+  <PaperText
+    {...rest}
+    style={[
+      {
+        color,
+        fontSize: variantStyles[variant].fontSize,
+        lineHeight: variantStyles[variant].lineHeight,
+        fontFamily: typography.fontFamily[weightToFontFamily[weight]],
+      },
+      style,
+    ]}
+  >
+    {children}
+  </PaperText>
+);

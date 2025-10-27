@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Dimensions, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, StyleSheet, View } from 'react-native';
 import { CameraView as ExpoCameraView } from 'expo-camera';
 import type { CameraCapturedPicture } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { FAB, IconButton } from 'react-native-paper';
 
 import { Button, LoadingSpinner, Text } from '@/components';
 import { spacing } from '@/utils';
@@ -28,7 +28,7 @@ type CameraPosition = 'back' | 'front';
 
 const flashSequence: FlashState[] = ['auto', 'on', 'off'];
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+// Material components used for buttons/FAB – no custom press animations needed now.
 
 type CameraViewHandle = InstanceType<typeof ExpoCameraView>;
 
@@ -40,19 +40,7 @@ export const CameraView = ({ onCapture, onCancel, onGalleryPress, guideText, pro
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [showFlashOverlay, setShowFlashOverlay] = useState(false);
 
-  const scale = useSharedValue(1);
-
-  const handleCapturePressIn = useCallback(() => {
-    scale.value = withTiming(0.9, { duration: 120 });
-  }, [scale]);
-
-  const handleCapturePressOut = useCallback(() => {
-    scale.value = withTiming(1, { duration: 120 });
-  }, [scale]);
-
-  const captureStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  // Using FAB for capture – Material handles visual states
 
   const toggleCamera = () => {
     setCameraType((prev: CameraPosition) => (prev === 'back' ? 'front' : 'back'));
@@ -68,16 +56,15 @@ export const CameraView = ({ onCapture, onCancel, onGalleryPress, guideText, pro
   const flashIcon = useMemo(() => {
     switch (flashMode) {
       case 'on':
-        return 'zap';
+        return 'flash';
       case 'off':
-        return 'zap-off';
+        return 'flash-off';
       case 'auto':
       default:
-        return 'zap';
+        return 'flash-auto';
     }
   }, [flashMode]);
-
-  const flashColor = flashMode === 'off' ? 'rgba(255,255,255,0.4)' : '#FFFFFF';
+  const flashColor = flashMode === 'off' ? 'rgba(255,255,255,0.8)' : '#FFFFFF';
 
   const takePhoto = async () => {
     if (!cameraRef.current || isCapturing) {
@@ -153,23 +140,19 @@ export const CameraView = ({ onCapture, onCancel, onGalleryPress, guideText, pro
 
       <View style={styles.topControls}>
         {onCancel ? (
-          <TouchableOpacity style={styles.circleButton} onPress={onCancel} accessibilityRole="button">
-            <Feather name="x" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
+          <IconButton icon="close" iconColor="#FFFFFF" size={24} onPress={onCancel} style={styles.iconBtn} />
         ) : (
           <View style={styles.circleButtonPlaceholder} />
         )}
 
-        <TouchableOpacity style={styles.circleButton} onPress={cycleFlash} accessibilityRole="button">
-          <Feather name={flashIcon} size={22} color={flashColor} />
+        <View>
+          <IconButton icon={flashIcon as any} iconColor={flashColor} size={24} onPress={cycleFlash} style={styles.iconBtn} />
           <Text variant="caption" style={styles.flashLabel} color="#FFFFFF">
             {flashMode.toUpperCase()}
           </Text>
-        </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity style={styles.circleButton} onPress={toggleCamera} accessibilityRole="button">
-          <MaterialCommunityIcons name="camera-retake" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+        <IconButton icon="camera-switch" iconColor="#FFFFFF" size={24} onPress={toggleCamera} style={styles.iconBtn} />
       </View>
 
       {guideText && (
@@ -181,20 +164,15 @@ export const CameraView = ({ onCapture, onCancel, onGalleryPress, guideText, pro
       )}
 
       <View style={styles.bottomControls}>
-        <TouchableOpacity style={styles.galleryButton} onPress={onGalleryPress} accessibilityRole="button">
-          <Feather name="image" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+        <IconButton icon="image" iconColor="#FFFFFF" size={24} onPress={onGalleryPress} style={styles.iconBtnSquare} />
 
-        <AnimatedTouchable
-          accessibilityRole="button"
+        <FAB
+          icon="camera"
           onPress={takePhoto}
-          onPressIn={handleCapturePressIn}
-          onPressOut={handleCapturePressOut}
-          style={[styles.captureButton, captureStyle]}
           disabled={isCapturing || processing}
-        >
-          <View style={styles.captureInner} />
-        </AnimatedTouchable>
+          style={styles.captureFab}
+          size="large"
+        />
 
         <View style={styles.circleButtonPlaceholder} />
       </View>
@@ -255,6 +233,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  iconBtn: { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 24 },
   circleButtonPlaceholder: {
     width: 48,
     height: 48,
@@ -285,31 +264,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  galleryButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  captureButton: {
-    width: CAPTURE_BUTTON_SIZE,
-    height: CAPTURE_BUTTON_SIZE,
-    borderRadius: CAPTURE_BUTTON_SIZE / 2,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  captureInner: {
-    width: CAPTURE_BUTTON_SIZE - 18,
-    height: CAPTURE_BUTTON_SIZE - 18,
-    borderRadius: (CAPTURE_BUTTON_SIZE - 18) / 2,
-    backgroundColor: '#FFFFFF',
-  },
+  iconBtnSquare: { backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 12 },
+  captureFab: { width: CAPTURE_BUTTON_SIZE, height: CAPTURE_BUTTON_SIZE, borderRadius: CAPTURE_BUTTON_SIZE / 2 },
   previewContainer: {
     position: 'absolute',
     bottom: 0,
