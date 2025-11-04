@@ -41,9 +41,13 @@ dependencies {
 	implementation("com.google.api-client:google-api-client:2.2.0")
 	implementation("com.google.apis:google-api-services-youtube:v3-rev20230502-2.0.0")
 	implementation("com.google.http-client:google-http-client-jackson2:1.43.3")
+    implementation("org.apache.pdfbox:pdfbox:2.0.31")
+	// OpenAI SDK for GPT-4 Vision
+	implementation("com.theokanning.openai-gpt3-java:service:0.18.2")
 	runtimeOnly("org.postgresql:postgresql")
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
+	annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")

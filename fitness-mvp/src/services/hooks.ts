@@ -13,13 +13,13 @@ import { RecipeCard, UploadRecipePayload, UploadWorkoutPayload, WorkoutCard } fr
 const mutationKeys = {
   uploadWorkout: ['upload', 'workout'] as const,
   uploadRecipe: ['upload', 'recipe'] as const,
-  saveWorkout: (id: string) => ['save', 'workout', id] as const,
-  saveRecipe: (id: string) => ['save', 'recipe', id] as const,
+  saveWorkout: (userId?: string, id?: string) => ['save', 'workout', userId, id] as const,
+  saveRecipe: (userId?: string, id?: string) => ['save', 'recipe', userId, id] as const,
 };
 
 const queryKeys = {
-  savedWorkouts: ['workouts', 'saved'] as const,
-  savedRecipes: ['recipes', 'saved'] as const,
+  savedWorkouts: (userId?: string) => ['workouts', 'saved', userId] as const,
+  savedRecipes: (userId?: string) => ['recipes', 'saved', userId] as const,
 };
 
 export const useUploadWorkout = () =>
@@ -34,26 +34,38 @@ export const useUploadRecipe = () =>
     mutationFn: (payload) => uploadRecipeImage(payload.uri, payload.payload),
   });
 
-export const useSaveWorkout = () =>
+export const useSaveWorkout = (userId?: string) =>
   useMutation<boolean, Error, string>({
-    mutationKey: ['save', 'workout'],
-    mutationFn: (workoutId) => saveWorkout(workoutId),
+    mutationKey: mutationKeys.saveWorkout(userId),
+    mutationFn: (workoutId) => {
+      if (!userId) {
+        return Promise.reject(new Error('Missing user context'));
+      }
+      return saveWorkout(workoutId, userId);
+    },
   });
 
-export const useSaveRecipe = () =>
+export const useSaveRecipe = (userId?: string) =>
   useMutation<boolean, Error, string>({
-    mutationKey: ['save', 'recipe'],
-    mutationFn: (recipeId) => saveRecipe(recipeId),
+    mutationKey: mutationKeys.saveRecipe(userId),
+    mutationFn: (recipeId) => {
+      if (!userId) {
+        return Promise.reject(new Error('Missing user context'));
+      }
+      return saveRecipe(recipeId, userId);
+    },
   });
 
-export const useSavedWorkouts = () =>
+export const useSavedWorkouts = (userId?: string) =>
   useQuery<WorkoutCard[], Error>({
-    queryKey: queryKeys.savedWorkouts,
-    queryFn: getSavedWorkouts,
+    queryKey: queryKeys.savedWorkouts(userId),
+    enabled: !!userId,
+    queryFn: () => getSavedWorkouts(userId),
   });
 
-export const useSavedRecipes = () =>
+export const useSavedRecipes = (userId?: string) =>
   useQuery<RecipeCard[], Error>({
-    queryKey: queryKeys.savedRecipes,
-    queryFn: getSavedRecipes,
+    queryKey: queryKeys.savedRecipes(userId),
+    enabled: !!userId,
+    queryFn: () => getSavedRecipes(userId),
   });

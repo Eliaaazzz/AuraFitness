@@ -28,33 +28,46 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class Fit401RetrievalIntegrationTest {
 
     private static PostgreSQLContainer<?> postgres;
+    private static boolean postgresAvailable;
 
     @DynamicPropertySource
     static void registerDataSource(DynamicPropertyRegistry registry) {
         ensurePostgres();
-        Assumptions.assumeTrue(postgres != null && postgres.isRunning(), "Postgres container unavailable for FIT-401 tests");
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.datasource.driver-class-name", postgres::getDriverClassName);
-        registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
+        if (postgresAvailable) {
+            registry.add("spring.datasource.url", postgres::getJdbcUrl);
+            registry.add("spring.datasource.username", postgres::getUsername);
+            registry.add("spring.datasource.password", postgres::getPassword);
+            registry.add("spring.datasource.driver-class-name", postgres::getDriverClassName);
+            registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
+        } else {
+            registry.add("spring.datasource.url", () -> "jdbc:h2:mem:fit401_skip;DB_CLOSE_DELAY=-1");
+            registry.add("spring.datasource.username", () -> "sa");
+            registry.add("spring.datasource.password", () -> "");
+            registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
+            registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.H2Dialect");
+            registry.add("app.seed.enabled", () -> "false");
+            registry.add("spring.flyway.enabled", () -> "false");
+        }
     }
 
     @BeforeAll
     void spinUpContainer() {
         ensurePostgres();
-        Assumptions.assumeTrue(postgres != null && postgres.isRunning(), "Postgres container unavailable for FIT-401 tests");
+        Assumptions.assumeTrue(postgresAvailable, "Postgres container unavailable for FIT-401 tests");
     }
 
     private static void ensurePostgres() {
         if (postgres != null && postgres.isRunning()) {
+            postgresAvailable = true;
             return;
         }
         try {
             postgres = new PostgreSQLContainer<>("postgres:16-alpine");
             postgres.start();
+            postgresAvailable = true;
         } catch (Throwable ex) {
             postgres = null;
+            postgresAvailable = false;
         }
     }
 
@@ -74,6 +87,8 @@ class Fit401RetrievalIntegrationTest {
                 .userHint("beginner")
                 .userHint("20 min")
                 .build();
+
+        Assumptions.assumeTrue(postgresAvailable, "Postgres container unavailable for FIT-401 tests");
 
         ImageQueryService.WorkoutDetectionResult detection = imageQueryService.detectWorkoutContext(metadata);
         assertThat(detection.getEquipment()).isEqualTo("dumbbells");
@@ -106,6 +121,8 @@ class Fit401RetrievalIntegrationTest {
                 .userHint("30 minutes")
                 .build();
 
+        Assumptions.assumeTrue(postgresAvailable, "Postgres container unavailable for FIT-401 tests");
+
         ImageQueryService.WorkoutDetectionResult detection = imageQueryService.detectWorkoutContext(metadata);
         assertThat(detection.getEquipment()).isEqualTo("mat");
         assertThat(detection.getLevel()).isEqualTo("intermediate");
@@ -130,6 +147,8 @@ class Fit401RetrievalIntegrationTest {
                 .userHint("45 min")
                 .build();
 
+        Assumptions.assumeTrue(postgresAvailable, "Postgres container unavailable for FIT-401 tests");
+
         ImageQueryService.RecipeDetectionResult detection = imageQueryService.detectRecipeContext(metadata);
         assertThat(detection.getIngredients()).contains("chicken");
         assertThat(detection.getMaxTimeMinutes()).isGreaterThanOrEqualTo(30);
@@ -152,6 +171,8 @@ class Fit401RetrievalIntegrationTest {
     void emptyDetectionFallsBackToQuickEasyRecipes() {
         ImageQueryService.RecipeDetectionResult detection = imageQueryService.detectRecipeContext(ImageRequest.builder().build());
         assertThat(detection.getIngredients()).isEmpty();
+
+        Assumptions.assumeTrue(postgresAvailable, "Postgres container unavailable for FIT-401 tests");
 
         var recipes = recipeRetrievalService.findRecipes(List.of(), detection.getMaxTimeMinutes());
 

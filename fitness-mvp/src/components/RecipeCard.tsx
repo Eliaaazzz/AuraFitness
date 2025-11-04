@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Snackbar } from 'react-native-paper';
+import { useSnackbar } from '@/components';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 
 import { Button, Card, Text } from '@/components';
 import { radii, spacing } from '@/utils';
@@ -15,8 +16,7 @@ type Props = {
 
 export const RecipeCard = ({ item, onSave, onStart }: Props) => {
   const [saving, setSaving] = useState(false);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const { showSnackbar } = useSnackbar();
   const time = item.timeMinutes ? `${item.timeMinutes} min` : '—';
   const difficulty = item.difficulty ? item.difficulty.toUpperCase() : '—';
 
@@ -26,11 +26,13 @@ export const RecipeCard = ({ item, onSave, onStart }: Props) => {
       setSaving(true);
       const result = await Promise.resolve(onSave(item.id));
       const ok = result === undefined ? true : Boolean(result);
-      setSnackbarMessage(ok ? 'Saved to your recipes' : 'Failed to save');
-      setSnackbarVisible(true);
+      if (ok) {
+        showSnackbar('Saved to your recipes', { variant: 'success' });
+      } else {
+        showSnackbar('Failed to save', { variant: 'error', actionLabel: 'Retry', onAction: handleSave });
+      }
     } catch (e: any) {
-      setSnackbarMessage(e?.message || 'Failed to save');
-      setSnackbarVisible(true);
+      showSnackbar(getFriendlyErrorMessage(e), { variant: 'error', actionLabel: 'Retry', onAction: handleSave });
     } finally {
       setSaving(false);
     }
@@ -55,10 +57,6 @@ export const RecipeCard = ({ item, onSave, onStart }: Props) => {
           <Feather name="bookmark" size={20} />
         </Pressable>
       </View>
-
-      <Snackbar visible={snackbarVisible} onDismiss={() => setSnackbarVisible(false)} duration={2000}>
-        {snackbarMessage}
-      </Snackbar>
     </Card>
   );
 };

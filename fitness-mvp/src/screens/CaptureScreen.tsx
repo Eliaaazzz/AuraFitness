@@ -12,14 +12,18 @@ import {
   SafeAreaWrapper,
   Text,
 } from '@/components';
-import { formatDifficulty, formatMinutes, formatNumber, compressImage, getFileSize } from '@/utils';
+import { useSnackbar } from '@/components';
+import { formatDifficulty, formatMinutes, formatNumber, compressImage, getFileSize, openSettingsAndCheck } from '@/utils';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { permissionStorage, preferenceStorage, useSaveRecipe, useSaveWorkout, useSavedRecipes, useSavedWorkouts, useUploadRecipe, useUploadWorkout } from '@/services';
 import { useNavigation } from '@react-navigation/native';
 import { useCameraPermission } from '@/hooks/useCameraPermission';
 import { useGalleryPermission } from '@/hooks/useGalleryPermission';
+import { usePermissionHelper } from '@/hooks/usePermissionHelper';
 import { EquipmentSelectionModal, EquipmentChoice } from '@/components/EquipmentSelectionModal';
 import { PermissionDialog } from '@/components/PermissionDialog';
 import { RecipeCard, WorkoutCard } from '@/types';
+import useCurrentUser from '@/hooks/useCurrentUser';
 
 const MAX_IMAGE_DIMENSION = 1024;
 
@@ -36,6 +40,10 @@ export const CaptureScreen = () => {
   const navigation = useNavigation<any>();
   const cameraPerm = useCameraPermission();
   const galleryPerm = useGalleryPermission();
+  const { showSnackbar, showTopSnackbar } = useSnackbar();
+  const { requestWithTopSnackbar } = usePermissionHelper();
+  const currentUser = useCurrentUser();
+  const userId = currentUser.data?.userId;
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ResultTab>('workouts');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -45,26 +53,32 @@ export const CaptureScreen = () => {
 
   const uploadWorkout = useUploadWorkout();
   const uploadRecipe = useUploadRecipe();
-  const saveWorkoutMutation = useSaveWorkout();
-  const saveRecipeMutation = useSaveRecipe();
-  const savedWorkoutsQuery = useSavedWorkouts();
-  const savedRecipesQuery = useSavedRecipes();
+  const saveWorkoutMutation = useSaveWorkout(userId);
+  const saveRecipeMutation = useSaveRecipe(userId);
+  const savedWorkoutsQuery = useSavedWorkouts(userId);
+  const savedRecipesQuery = useSavedRecipes(userId);
 
   const [workoutResults, setWorkoutResults] = useState<WorkoutCard[]>([]);
   const [recipeResults, setRecipeResults] = useState<RecipeCard[]>([]);
 
   useEffect(() => {
+    if (currentUser.isError) {
+      const message = currentUser.error instanceof Error ? currentUser.error.message : 'Failed to load user information';
+      showTopSnackbar(message, { variant: 'error' });
+    }
     // hydrate last equipment selection
     preferenceStorage.equipment.read().then((val) => {
       if (val) setEquipmentChoice(val);
     });
-  }, []);
+  }, [currentUser.isError, currentUser.error, showTopSnackbar]);
 
   const handleRequestCamera = async () => {
-    const response = await cameraPerm.request();
-    if (response?.status === 'granted') {
-      setErrorMessage(null);
-    }
+    const ok = await requestWithTopSnackbar(cameraPerm.request, cameraPerm.refresh, {
+      denied: 'Camera access denied. Open settings to enable.',
+      granted: 'Camera access granted',
+      stillDenied: 'Still denied. You can enable camera in Settings.',
+    });
+    if (ok) setErrorMessage(null);
   };
 
   const openSettings = () => {
@@ -81,20 +95,16 @@ export const CaptureScreen = () => {
   }, []);
 
   const ensureGalleryPermission = async (): Promise<boolean> => {
-    if (galleryPermission?.status === 'granted') {
+    if (galleryPerm.state === 'granted') {
       return true;
     }
 
-    const response = await galleryPerm.request();
-    if (response?.status !== 'granted') {
-      Alert.alert(
-        'Gallery permission needed',
-        'We need photo library access so you can pick existing photos of your equipment or ingredients.',
-      );
-      return false;
-    }
-
-    return true;
+    const ok = await requestWithTopSnackbar(galleryPerm.request, galleryPerm.refresh, {
+      denied: 'Photo library access needed to choose images.',
+      granted: 'Photo library access granted',
+      stillDenied: 'Still denied. You can enable library access in Settings.',
+    });
+    return ok;
   };
 
   const resizeImageIfNeeded = async (uri: string) => {
@@ -150,7 +160,7 @@ export const CaptureScreen = () => {
       setEquipmentModalVisible(false);
       navigation.navigate('Results', { workouts: data });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to fetch workouts.');
+      setErrorMessage(getFriendlyErrorMessage(error));
     } finally {
       setIsProcessing(false);
     }
@@ -172,7 +182,7 @@ export const CaptureScreen = () => {
       setEquipmentModalVisible(false);
       navigation.navigate('Results', { recipes: data });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to fetch recipes.');
+      setErrorMessage(getFriendlyErrorMessage(error));
     } finally {
       setIsProcessing(false);
     }
@@ -180,28 +190,42 @@ export const CaptureScreen = () => {
 
   const handleSaveWorkout = useCallback(
     async (id: string) => {
+      if (!userId) {
+        showSnackbar('请先登录以保存内容', { variant: 'error' });
+        return;
+      }
       try {
         await saveWorkoutMutation.mutateAsync(id);
         savedWorkoutsQuery.refetch();
-        Alert.alert('Saved', 'Workout saved to your library.');
+        showSnackbar('Workout saved to your library', { variant: 'success' });
       } catch (error) {
-        Alert.alert('Unable to save workout', error instanceof Error ? error.message : 'Try again later.');
+        showSnackbar(
+          error instanceof Error ? error.message : 'Unable to save workout. Try again later.',
+          { variant: 'error', actionLabel: 'Retry', onAction: () => handleSaveWorkout(id) },
+        );
       }
     },
-    [saveWorkoutMutation, savedWorkoutsQuery],
+    [saveWorkoutMutation, savedWorkoutsQuery, showSnackbar, userId],
   );
 
   const handleSaveRecipe = useCallback(
     async (id: string) => {
+      if (!userId) {
+        showSnackbar('请先登录以保存内容', { variant: 'error' });
+        return;
+      }
       try {
         await saveRecipeMutation.mutateAsync(id);
         savedRecipesQuery.refetch();
-        Alert.alert('Saved', 'Recipe saved to your library.');
+        showSnackbar('Recipe saved to your library', { variant: 'success' });
       } catch (error) {
-        Alert.alert('Unable to save recipe', error instanceof Error ? error.message : 'Try again later.');
+        showSnackbar(
+          error instanceof Error ? error.message : 'Unable to save recipe. Try again later.',
+          { variant: 'error', actionLabel: 'Retry', onAction: () => handleSaveRecipe(id) },
+        );
       }
     },
-    [saveRecipeMutation, savedRecipesQuery],
+    [saveRecipeMutation, savedRecipesQuery, showSnackbar, userId],
   );
 
   const shouldShowCamera = cameraPerm.state === 'granted';
@@ -268,7 +292,7 @@ export const CaptureScreen = () => {
     );
   }, [activeTab, capturedImage, errorMessage, handleSaveRecipe, handleSaveWorkout, isProcessing, recipeResults, workoutResults]);
 
-  if (!cameraPermission) {
+  if (!cameraPerm.permission) {
     return (
       <SafeAreaWrapper>
         <LoadingState label="Requesting camera permission…" />
@@ -284,7 +308,18 @@ export const CaptureScreen = () => {
           <PermissionDialog
             visible
             onRequestPermission={handleRequestCamera}
-            onOpenSettings={openSettings}
+            onOpenSettings={async () => {
+              // mirror the dialog open-settings flow with the helper
+              await requestWithTopSnackbar(
+                async () => ({ status: 'denied' as const }),
+                cameraPerm.refresh,
+                {
+                  denied: 'Opening settings…',
+                  granted: 'Camera access granted',
+                  stillDenied: 'Still denied. You can enable camera in Settings.',
+                },
+              );
+            }}
             onChooseGallery={pickImageFromGallery}
             permissionDenied={permissionDenied}
           />
