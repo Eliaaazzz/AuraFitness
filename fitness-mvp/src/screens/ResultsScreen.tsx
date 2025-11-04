@@ -4,13 +4,16 @@ import { useRoute } from '@react-navigation/native';
 import { SafeAreaWrapper, Container, Card, Text, Button, WorkoutCard, RecipeCard } from '@/components';
 import { spacing } from '@/utils';
 import { useSavedWorkouts, useSaveWorkout, useSavedRecipes, useSaveRecipe } from '@/services';
+import useCurrentUser from '@/hooks/useCurrentUser';
 
 export const ResultsScreen = () => {
   const route = useRoute<any>();
-  const savedWorkouts = useSavedWorkouts();
-  const saveWorkout = useSaveWorkout();
-  const savedRecipes = useSavedRecipes();
-  const saveRecipe = useSaveRecipe();
+  const currentUser = useCurrentUser();
+  const userId = currentUser.data?.userId;
+  const savedWorkouts = useSavedWorkouts(userId);
+  const saveWorkout = useSaveWorkout(userId);
+  const savedRecipes = useSavedRecipes(userId);
+  const saveRecipe = useSaveRecipe(userId);
   const [savedTab, setSavedTab] = useState<'workouts' | 'recipes'>('workouts');
 
   const hasRouteWorkouts = Array.isArray(route.params?.workouts) && route.params.workouts.length > 0;
@@ -22,6 +25,34 @@ export const ResultsScreen = () => {
     if (hasRouteWorkouts) return route.params.workouts as any[];
     return showingRecipes ? (savedRecipes.data ?? []) : (savedWorkouts.data ?? []);
   }, [hasRouteRecipes, hasRouteWorkouts, route.params, showingRecipes, savedRecipes.data, savedWorkouts.data]);
+
+  if (!hasRouteRecipes && !hasRouteWorkouts) {
+    if (currentUser.isLoading) {
+      return (
+        <SafeAreaWrapper>
+          <Container>
+            <Card>
+              <Text variant="body">Loading your profile…</Text>
+            </Card>
+          </Container>
+        </SafeAreaWrapper>
+      );
+    }
+
+    if (currentUser.isError) {
+      return (
+      <SafeAreaWrapper>
+        <Container>
+          <Card style={styles.fullWidthCard}>
+            <Text variant="heading2" weight="bold">Unable to load user</Text>
+            <Text variant="body" style={{ opacity: 0.8 }}>Check your API key or network connection, then try again.</Text>
+            <Button title="Retry" onPress={() => currentUser.refetch()} />
+          </Card>
+        </Container>
+        </SafeAreaWrapper>
+      );
+    }
+  }
 
   return (
     <SafeAreaWrapper>
@@ -57,6 +88,17 @@ export const ResultsScreen = () => {
           </View>
         )}
 
+        {(!hasRouteRecipes && !hasRouteWorkouts) && ((showingRecipes && savedRecipes.isError) || (!showingRecipes && savedWorkouts.isError)) && (
+          <Card style={styles.fullWidthCard}>
+            <Text variant="body">Failed to load your saved {showingRecipes ? 'recipes' : 'workouts'}.</Text>
+            <Button
+              title="Retry"
+              variant="outline"
+              onPress={() => (showingRecipes ? savedRecipes.refetch() : savedWorkouts.refetch())}
+            />
+          </Card>
+        )}
+
         <View style={styles.grid}>
           {items.map((it) => (
             <View key={it.id} style={styles.card}>
@@ -86,6 +128,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     alignItems: 'center',
+  },
+  fullWidthCard: {
+    width: '100%',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   thumb: { width: 64, height: 64, borderRadius: 8 },
   grid: {

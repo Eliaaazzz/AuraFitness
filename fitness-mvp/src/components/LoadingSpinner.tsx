@@ -1,8 +1,6 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, useColorScheme } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-
-import { getTheme } from '@/utils';
+import React from 'react';
+import { View } from 'react-native';
+import { ActivityIndicator } from 'react-native-paper';
 
 type SpinnerSize = 'small' | 'medium' | 'large';
 
@@ -17,51 +15,12 @@ export interface LoadingSpinnerProps {
   color?: string;
 }
 
+// Material replacement: wrap Paper ActivityIndicator to keep our API stable
 export const LoadingSpinner = ({ size = 'medium', color }: LoadingSpinnerProps) => {
-  const rotation = useSharedValue(0);
-  const dimension = sizeToPixels[size];
-  const scheme = useColorScheme();
-  const fallbackColor = getTheme(scheme === 'dark' ? 'dark' : 'light').colors.primary;
-
-  useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 800, easing: Easing.bezier(0.4, 0.0, 0.7, 1.0) }),
-      -1,
-      false,
-    );
-  }, [rotation]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
-  const tint = color ?? fallbackColor;
-
+  const pixelSize = sizeToPixels[size];
   return (
-    <View style={[styles.container, { width: dimension, height: dimension }]}>
-      <Animated.View
-        style={[
-          styles.spinner,
-          animatedStyle,
-          {
-            borderColor: `${tint}33`,
-            borderTopColor: tint,
-            width: dimension,
-            height: dimension,
-          },
-        ]}
-      />
+    <View accessibilityRole="progressbar" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <ActivityIndicator animating size={pixelSize} color={color} />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  spinner: {
-    borderWidth: 3,
-    borderRadius: 999,
-  },
-});

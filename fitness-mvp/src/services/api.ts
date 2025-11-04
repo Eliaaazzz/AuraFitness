@@ -2,7 +2,8 @@ import axios, { AxiosError } from 'axios';
 import { Platform } from 'react-native';
 
 import { ApiResponse, RecipeCard, UploadRecipePayload, UploadWorkoutPayload, WorkoutCard } from '@/types';
-import { API_BASE_URL, API_TIMEOUT, YOUTUBE_API_KEY } from '@env';
+import { getFriendlyErrorMessage } from '@/utils/errors';
+import { API_BASE_URL, API_TIMEOUT, YOUTUBE_API_KEY, API_KEY } from '@env';
 
 const timeout = Number(API_TIMEOUT) || 5000;
 
@@ -14,6 +15,7 @@ export const api = axios.create({
     Accept: 'application/json',
     'User-Agent': `FitnessMVPMobile/${Platform.OS}`,
     'X-YouTube-Key': YOUTUBE_API_KEY ?? '',
+    'X-API-Key': API_KEY ?? '',
   },
 });
 
@@ -31,39 +33,10 @@ if (__DEV__) {
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    const message = normalizeErrorMessage(error);
+    const message = getFriendlyErrorMessage(error);
     return Promise.reject(new Error(message));
   },
 );
-
-const normalizeErrorMessage = (error: AxiosError) => {
-  if (error.code === 'ECONNABORTED') {
-    return 'Request timed out, try again.';
-  }
-
-  if (error.message === 'Network Error') {
-    return 'Check internet connection and try again.';
-  }
-
-  const status = error.response?.status ?? 0;
-
-  if (status >= 500) {
-    return 'Something went wrong, try again.';
-  }
-
-  if (status === 0) {
-    return 'Unable to reach the server. Please try again later.';
-  }
-
-  const data = error.response?.data as ApiResponse<unknown> | undefined;
-  const apiMessage = typeof data?.message === 'string' ? data.message : undefined;
-
-  if (apiMessage) {
-    return apiMessage;
-  }
-
-  return 'Request failed. Please try again.';
-};
 
 const buildImageFormData = (imageUri: string, field: string, payload?: Record<string, unknown>) => {
   const formData = new FormData();
@@ -129,22 +102,30 @@ export const uploadRecipeImage = async (
   return response.data.data;
 };
 
-export const saveWorkout = async (workoutId: string): Promise<boolean> => {
-  const response = await api.post<ApiResponse<{ success: boolean }>>('/api/v1/workouts/save', { workoutId });
+export const saveWorkout = async (workoutId: string, userId?: string): Promise<boolean> => {
+  const payload: Record<string, unknown> = { workoutId };
+  if (userId) payload.userId = userId;
+  const response = await api.post<ApiResponse<{ success: boolean }>>('/api/v1/workouts/save', payload);
   return response.data.data.success;
 };
 
-export const saveRecipe = async (recipeId: string): Promise<boolean> => {
-  const response = await api.post<ApiResponse<{ success: boolean }>>('/api/v1/recipes/save', { recipeId });
+export const saveRecipe = async (recipeId: string, userId?: string): Promise<boolean> => {
+  const payload: Record<string, unknown> = { recipeId };
+  if (userId) payload.userId = userId;
+  const response = await api.post<ApiResponse<{ success: boolean }>>('/api/v1/recipes/save', payload);
   return response.data.data.success;
 };
 
-export const getSavedWorkouts = async (): Promise<WorkoutCard[]> => {
-  const response = await api.get<ApiResponse<WorkoutCard[]>>('/api/v1/workouts/saved');
+export const getSavedWorkouts = async (userId?: string): Promise<WorkoutCard[]> => {
+  const response = await api.get<ApiResponse<WorkoutCard[]>>('/api/v1/workouts/saved', {
+    params: userId ? { userId } : undefined,
+  });
   return response.data.data;
 };
 
-export const getSavedRecipes = async (): Promise<RecipeCard[]> => {
-  const response = await api.get<ApiResponse<RecipeCard[]>>('/api/v1/recipes/saved');
+export const getSavedRecipes = async (userId?: string): Promise<RecipeCard[]> => {
+  const response = await api.get<ApiResponse<RecipeCard[]>>('/api/v1/recipes/saved', {
+    params: userId ? { userId } : undefined,
+  });
   return response.data.data;
 };

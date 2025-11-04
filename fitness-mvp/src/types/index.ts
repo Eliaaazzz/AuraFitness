@@ -27,13 +27,44 @@ export interface RecipeCard {
   tags?: string[];
 }
 
-export interface User {
-  id: string;
+export interface UserProfilePayload {
+  heightCm?: number | null;
+  weightKg?: number | null;
+  bodyFatPercentage?: number | null;
+  basalMetabolicRate?: number | null;
+  fitnessGoal?: string | null;
+  dietaryPreference?: string | null;
+  allergens?: string[];
+  dailyCalorieTarget?: number | null;
+  dailyProteinTarget?: number | null;
+  dailyCarbsTarget?: number | null;
+  dailyFatTarget?: number | null;
+}
+
+export interface UserProfileResponse {
+  userId: string;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  bmi?: number | null;
+  bodyFatPercentage?: number | null;
+  basalMetabolicRate?: number | null;
+  fitnessGoal?: string | null;
+  dietaryPreference?: string | null;
+  allergens?: string[];
+  dailyCalorieTarget?: number | null;
+  dailyProteinTarget?: number | null;
+  dailyCarbsTarget?: number | null;
+  dailyFatTarget?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CurrentUserResponse {
+  userId: string;
   email: string;
-  displayName: string;
-  avatarUrl?: string;
-  savedWorkoutIds: string[];
-  savedRecipeIds: string[];
+  level: string;
+  timeBucket: number;
+  profile?: UserProfileResponse | null;
 }
 
 export interface ApiResponse<T> {
@@ -52,3 +83,5 @@ export interface UploadWorkoutPayload {
 export interface UploadRecipePayload {
   ingredients?: string[];
 }
+
+export * from './mealPlan';

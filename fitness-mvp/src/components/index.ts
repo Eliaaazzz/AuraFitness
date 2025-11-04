@@ -9,3 +9,4 @@ export * from './Container';
 export * from './CameraView';
 export * from './WorkoutCard';
 export * from './RecipeCard';
+export * from './SnackbarProvider';

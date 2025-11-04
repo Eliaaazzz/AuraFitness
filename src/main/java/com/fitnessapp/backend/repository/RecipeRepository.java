@@ -3,7 +3,9 @@ package com.fitnessapp.backend.repository;
 import com.fitnessapp.backend.domain.Recipe;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,4 +28,15 @@ public interface RecipeRepository extends JpaRepository<Recipe, UUID> {
 
   @Query(value = "select count(*) from recipe", nativeQuery = true)
   long countActual();
+
+  Optional<Recipe> findFirstByTitleIgnoreCase(String title);
+
+  List<Recipe> findTop12ByOrderByCreatedAtDesc();
+
+  @EntityGraph(attributePaths = {"ingredients", "ingredients.ingredient"})
+  List<Recipe> findByIdIn(Collection<UUID> ids);
+
+  @EntityGraph(attributePaths = {"ingredients", "ingredients.ingredient"})
+  @Query("select r from Recipe r")
+  List<Recipe> findAllWithIngredients();
 }

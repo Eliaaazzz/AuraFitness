@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button, Card, Container, SafeAreaWrapper, Text } from '@/components';
 import { spacing } from '@/utils';
 import { useSavedWorkouts } from '@/services';
+import useCurrentUser from '@/hooks/useCurrentUser';
 
 type TabParamList = {
   Capture: undefined;
@@ -16,8 +17,36 @@ type TabParamList = {
 };
 
 export const WorkoutsScreen = () => {
-  const saved = useSavedWorkouts();
+  const currentUser = useCurrentUser();
+  const userId = currentUser.data?.userId;
+  const saved = useSavedWorkouts(userId);
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
+
+  if (currentUser.isLoading) {
+    return (
+      <SafeAreaWrapper>
+        <Container>
+          <Card>
+            <Text variant="body">Loading your profile…</Text>
+          </Card>
+        </Container>
+      </SafeAreaWrapper>
+    );
+  }
+
+  if (currentUser.isError) {
+    return (
+      <SafeAreaWrapper>
+        <Container>
+          <Card style={styles.emptyState}>
+            <Text variant="heading2" weight="bold" style={styles.emptyTitle}>Unable to load user</Text>
+            <Text variant="body" style={styles.emptyBody}>Check your API key or network connection, then try again.</Text>
+            <Button title="Retry" onPress={() => currentUser.refetch()} />
+          </Card>
+        </Container>
+      </SafeAreaWrapper>
+    );
+  }
 
   return (
     <SafeAreaWrapper>
@@ -30,7 +59,13 @@ export const WorkoutsScreen = () => {
             <Text variant="body">Loading your saved workouts…</Text>
           </Card>
         )}
-        {!saved.isLoading && saved.data && saved.data.length > 0 ? (
+        {saved.isError && (
+          <Card>
+            <Text variant="body">Failed to load saved workouts.</Text>
+            <Button title="Retry" onPress={() => saved.refetch()} />
+          </Card>
+        )}
+        {!saved.isLoading && !saved.isError && saved.data && saved.data.length > 0 ? (
           saved.data.map((workout) => (
             <Card key={workout.id} style={styles.card}>
               <View style={styles.cardHeader}>

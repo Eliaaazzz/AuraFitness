@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Image, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Snackbar } from 'react-native-paper';
+import { useSnackbar } from '@/components';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 
 import { Button, Card, Text } from '@/components';
 import { spacing, radii } from '@/utils';
@@ -27,8 +28,7 @@ const openYouTube = async (youtubeId?: string) => {
 
 export const WorkoutCard = ({ item, onSave }: Props) => {
   const [saving, setSaving] = useState(false);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const { showSnackbar } = useSnackbar();
   const level = item.level?.toUpperCase?.() ?? '—';
   const duration = item.durationMinutes ? `${item.durationMinutes} min` : '—';
   const equipment = (item.equipment ?? []).join(', ');
@@ -39,11 +39,13 @@ export const WorkoutCard = ({ item, onSave }: Props) => {
       setSaving(true);
       const result = await Promise.resolve(onSave(item.id));
       const ok = result === undefined ? true : Boolean(result);
-      setSnackbarMessage(ok ? 'Saved to your workouts' : 'Failed to save');
-      setSnackbarVisible(true);
+      if (ok) {
+        showSnackbar('Saved to your workouts', { variant: 'success' });
+      } else {
+        showSnackbar('Failed to save', { variant: 'error', actionLabel: 'Retry', onAction: handleSave });
+      }
     } catch (e: any) {
-      setSnackbarMessage(e?.message || 'Failed to save');
-      setSnackbarVisible(true);
+      showSnackbar(getFriendlyErrorMessage(e), { variant: 'error', actionLabel: 'Retry', onAction: handleSave });
     } finally {
       setSaving(false);
     }
@@ -69,10 +71,6 @@ export const WorkoutCard = ({ item, onSave }: Props) => {
           <Feather name="bookmark" size={20} />
         </Pressable>
       </View>
-
-      <Snackbar visible={snackbarVisible} onDismiss={() => setSnackbarVisible(false)} duration={2000}>
-        {snackbarMessage}
-      </Snackbar>
     </Card>
   );
 };

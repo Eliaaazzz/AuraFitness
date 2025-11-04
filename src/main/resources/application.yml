@@ -13,6 +13,15 @@ app:
       warnings-enabled: true
   spoonacular:
     api-key: ${SPOONACULAR_API_KEY:}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: gpt-4o
+    meal-model: gpt-4o
+    timeout-seconds: 60
+    cost-per-thousand-tokens: 10.0
+    log-usage: true
+  meal-plan:
+    cache-ttl-hours: 24
   seed:
     enabled: ${APP_SEED_ENABLED:true}
 
@@ -113,7 +122,6 @@ management:
 
 server:
   port: ${SERVER_PORT:8080}
-
 
 
 

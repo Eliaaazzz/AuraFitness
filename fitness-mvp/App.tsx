@@ -9,6 +9,7 @@ import { MD3DarkTheme as PaperDarkTheme, MD3LightTheme as PaperLightTheme, Provi
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { BRAND_COLORS } from '@/utils';
 import { queryClient } from '@/services';
+import { SnackbarProvider } from '@/components';
 
 const App = () => {
   const colorScheme = useColorScheme();
@@ -21,8 +22,10 @@ const App = () => {
       <SafeAreaProvider>
         <PaperProvider theme={paperTheme}>
           <QueryClientProvider client={queryClient}>
-            <StatusBar style={barStyle} />
-            <AppNavigator />
+            <SnackbarProvider>
+              <StatusBar style={barStyle} />
+              <AppNavigator />
+            </SnackbarProvider>
           </QueryClientProvider>
         </PaperProvider>
       </SafeAreaProvider>

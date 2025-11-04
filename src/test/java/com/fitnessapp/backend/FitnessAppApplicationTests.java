@@ -9,6 +9,7 @@ import com.fitnessapp.backend.repository.RecipeRepository;
 import com.fitnessapp.backend.youtube.YouTubeService;
 import com.fitnessapp.backend.importer.DataImportService;
 import com.fitnessapp.backend.importer.RecipeImportService;
+import com.fitnessapp.backend.service.ApiKeyService;
 import com.fitnessapp.backend.repository.ImageQueryRepository;
 import javax.sql.DataSource;
 import jakarta.persistence.EntityManager;
@@ -31,12 +32,21 @@ class FitnessAppApplicationTests {
     @MockBean private RecipeRepository recipeRepository;
     @MockBean private IngredientRepository ingredientRepository;
     @MockBean private ImageQueryRepository imageQueryRepository;
+    @MockBean private com.fitnessapp.backend.repository.WorkoutSessionRepository workoutSessionRepository;
+    @MockBean private com.fitnessapp.backend.repository.UserProfileRepository userProfileRepository;
+    @MockBean private com.fitnessapp.backend.repository.PoseAnalysisResultRepository poseAnalysisResultRepository;
     @MockBean private DataSource dataSource;
     @MockBean private EntityManagerFactory entityManagerFactory;
     @MockBean private EntityManager entityManager;
     @MockBean private YouTubeService youTubeService;
     @MockBean private DataImportService dataImportService;
     @MockBean private RecipeImportService recipeImportService;
+    @MockBean private ApiKeyService apiKeyService;
+    @MockBean private com.fitnessapp.backend.service.UserProfileService userProfileService;
+    @MockBean private com.fitnessapp.backend.openai.ChatCompletionClient chatCompletionClient;
+    @MockBean private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    @MockBean private com.fitnessapp.backend.recipe.MealPlanHistoryService mealPlanHistoryService;
+    @MockBean private com.fitnessapp.backend.service.NutritionTrackingService nutritionTrackingService;
 
 	@Test
 	void contextLoads() {

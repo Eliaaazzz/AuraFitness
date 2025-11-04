@@ -1,0 +1,355 @@
+package com.fitnessapp.backend.recipe;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fitnessapp.backend.domain.Recipe;
+import com.fitnessapp.backend.domain.UserProfile;
+import com.fitnessapp.backend.domain.WorkoutSession;
+import com.fitnessapp.backend.openai.ChatCompletionClient;
+import com.fitnessapp.backend.recipe.MealPlanHistoryService;
+import com.fitnessapp.backend.repository.RecipeRepository;
+import com.fitnessapp.backend.repository.UserProfileRepository;
+import com.fitnessapp.backend.repository.WorkoutSessionRepository;
+import com.theokanning.openai.completion.chat.ChatMessage;
+import com.theokanning.openai.completion.chat.ChatMessageRole;
+import jakarta.persistence.EntityNotFoundException;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class SmartRecipeService {
+
+  private static final String CACHE_PREFIX = "meal-plan:";
+  private static final int MAX_TOKENS = 2000;
+
+  private final UserProfileRepository userProfileRepository;
+  private final WorkoutSessionRepository workoutSessionRepository;
+  private final RecipeRepository recipeRepository;
+  private final MealPlanHistoryService mealPlanHistoryService;
+  private final ChatCompletionClient chatCompletionClient;
+  private final ObjectMapper objectMapper;
+  private final StringRedisTemplate redisTemplate;
+
+  @Value("${app.openai.meal-model:${app.openai.model:gpt-4o}}")
+  private String mealPlanModel;
+
+  @Value("${app.meal-plan.cache-ttl-hours:24}")
+  private long cacheTtlHours;
+
+  public MealPlanResponse generateMealPlan(UUID userId) {
+    MealPlanResponse cached = readCachedPlan(userId);
+    if (cached != null) {
+      return cached;
+    }
+
+    UserProfile profile = userProfileRepository.findByUserId(userId)
+        .orElseThrow(() -> new EntityNotFoundException("User profile not found: " + userId));
+
+    LocalDateTime now = LocalDateTime.now();
+    List<WorkoutSession> sessions = workoutSessionRepository
+        .findByUserIdAndStartedAtBetweenOrderByStartedAtDesc(userId, now.minusDays(7), now);
+
+    NutritionTarget target = computeNutritionTarget(profile, sessions);
+
+    try {
+      String prompt = buildPrompt(profile, target, sessions);
+      List<ChatMessage> messages = List.of(
+          new ChatMessage(ChatMessageRole.SYSTEM.value(),
+              "You are a certified nutritionist specializing in fitness meal planning."),
+          new ChatMessage(ChatMessageRole.USER.value(), prompt)
+      );
+
+      String completion = chatCompletionClient.complete(mealPlanModel, messages, MAX_TOKENS, 0.3);
+      MealPlanResponse response = parseMealPlanResponse(userId, target, completion);
+
+      if (response == null || response.days().isEmpty()) {
+        log.warn("Parsed meal plan was empty for user {}. Falling back to default plan.", userId);
+        response = fallbackMealPlan(profile, target);
+      }
+
+      persistAndCachePlan(userId, response, "AI");
+      return response;
+    } catch (Exception ex) {
+      log.error("Failed to generate meal plan for user {} via GPT. Using fallback.", userId, ex);
+      MealPlanResponse fallback = fallbackMealPlan(profile, target);
+      persistAndCachePlan(userId, fallback, "FALLBACK");
+      return fallback;
+    }
+  }
+
+  public void evictCache(UUID userId) {
+    String cacheKey = cacheKey(userId);
+    redisTemplate.delete(cacheKey);
+  }
+
+  public Optional<MealPlanResponse> getCachedMealPlan(UUID userId) {
+    return Optional.ofNullable(readCachedPlan(userId));
+  }
+
+  private MealPlanResponse readCachedPlan(UUID userId) {
+    String value = redisTemplate.opsForValue().get(cacheKey(userId));
+    if (StringUtils.hasText(value)) {
+      try {
+        return objectMapper.readValue(value, MealPlanResponse.class);
+      } catch (JsonProcessingException e) {
+        log.warn("Failed to deserialize cached meal plan for user {}", userId, e);
+        redisTemplate.delete(cacheKey(userId));
+      }
+    }
+
+    return mealPlanHistoryService.latestPlan(userId)
+        .flatMap(plan -> {
+          try {
+            return Optional.of(objectMapper.readValue(plan.getPlanPayload(), MealPlanResponse.class));
+          } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialize stored meal plan for user {}", userId, e);
+            return Optional.empty();
+          }
+        }).orElse(null);
+  }
+
+  private void persistAndCachePlan(UUID userId, MealPlanResponse response, String source) {
+    try {
+      String payload = objectMapper.writeValueAsString(response);
+      mealPlanHistoryService.storePlan(userId, response, source, payload);
+      writeCache(userId, payload);
+    } catch (JsonProcessingException e) {
+      log.warn("Unable to serialize meal plan for user {}", userId, e);
+    }
+  }
+
+  private void writeCache(UUID userId, String payload) {
+    try {
+      Duration ttl = Duration.ofHours(cacheTtlHours <= 0 ? 24 : cacheTtlHours);
+      redisTemplate.opsForValue().set(cacheKey(userId), payload, ttl);
+    } catch (Exception e) {
+      log.warn("Unable to cache meal plan for user {}", userId, e);
+    }
+  }
+
+  private String cacheKey(UUID userId) {
+    return CACHE_PREFIX + userId;
+  }
+
+  private NutritionTarget computeNutritionTarget(UserProfile profile, List<WorkoutSession> sessions) {
+    int calories = Optional.ofNullable(profile.getDailyCalorieTarget()).orElseGet(() ->
+        Optional.ofNullable(profile.getBasalMetabolicRate()).orElse(2000));
+    int protein = Optional.ofNullable(profile.getDailyProteinTarget()).orElse((int) Math.round(calories * 0.32 / 4));
+    int carbs = Optional.ofNullable(profile.getDailyCarbsTarget()).orElse((int) Math.round(calories * 0.38 / 4));
+    int fat = Optional.ofNullable(profile.getDailyFatTarget()).orElse((int) Math.round(calories * 0.30 / 9));
+
+    int additionalCalories = sessions.stream()
+        .mapToInt(session -> Optional.ofNullable(session.getDurationSeconds()).orElse(0))
+        .map(seconds -> seconds / 300) // per 5 minutes
+        .sum() * 20; // +20 kcal per 5 minutes of recorded training
+
+    calories += additionalCalories;
+    protein += sessions.size() * 5;
+
+    return new NutritionTarget(calories, protein, carbs, fat);
+  }
+
+  private String buildPrompt(UserProfile profile, NutritionTarget target, List<WorkoutSession> sessions) {
+    String goal = profile.getFitnessGoal() != null ? profile.getFitnessGoal().name() : "MAINTAIN";
+    String dietary = profile.getDietaryPreference() != null ? profile.getDietaryPreference().name() : "NONE";
+    String allergens = profile.getAllergens() != null && !profile.getAllergens().isEmpty()
+        ? profile.getAllergens().stream().map(Enum::name).collect(Collectors.joining(", "))
+        : "NONE";
+
+    Map<String, Long> exerciseCounts = sessions.stream()
+        .collect(Collectors.groupingBy(WorkoutSession::getExerciseType, Collectors.counting()));
+    int totalMinutes = sessions.stream()
+        .mapToInt(ws -> Optional.ofNullable(ws.getDurationSeconds()).orElse(0))
+        .sum() / 60;
+
+    StringBuilder trainingSummary = new StringBuilder();
+    if (exerciseCounts.isEmpty()) {
+      trainingSummary.append("过去7天无记录训练");
+    } else {
+      trainingSummary.append("过去7天训练总时长约").append(Math.max(totalMinutes, 30)).append("分钟，");
+      trainingSummary.append("训练类型统计: ");
+      exerciseCounts.entrySet().stream()
+          .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+          .forEach(entry -> trainingSummary.append(entry.getKey())
+              .append(" x ").append(entry.getValue()).append("次; "));
+    }
+
+    return "请根据以下用户信息生成连续7天的饮食计划，每天4餐(早餐/午餐/晚餐/加餐)。" +
+        "使用JSON格式返回，不要附加额外文字。\n" +
+        "用户信息:\n" +
+        "目标: " + goal + "\n" +
+        "饮食偏好: " + dietary + "\n" +
+        "过敏原: " + allergens + "\n" +
+        "身高: " + Optional.ofNullable(profile.getHeightCm()).orElse(170) + " cm" + "\n" +
+        "体重: " + Optional.ofNullable(profile.getWeightKg()).orElse(65.0) + " kg" + "\n" +
+        "训练概要: " + trainingSummary + "\n" +
+        "每日营养目标 (不要省略): " +
+        "卡路里=" + target.calories() + "kcal, " +
+        "蛋白质=" + target.protein() + "g, " +
+        "碳水=" + target.carbs() + "g, " +
+        "脂肪=" + target.fat() + "g.\n" +
+        "要求:\n" +
+        "1. 按 JSON 返回: {\"days\":[{\"dayNumber\":1,\"meals\":[{\"type\":\"breakfast\",\"recipeName\":\"...\",\"calories\":450,\"protein\":30,\"carbs\":55,\"fat\":12}]}]}\n" +
+        "2. 多样化食材, 避免重复; 确保中文菜名。\n" +
+        "3. 卡路里和三大营养素需接近目标 (误差<5%).\n" +
+        "4. 每个 meal 节点必须包含 recipeName、calories、protein、carbs、fat 字段。\n" +
+        "5. 每天生成 4 餐 (breakfast, lunch, dinner, snack)。\n" +
+        "6. 如果某些偏好导致难生成, 请自动调整但必须说明原因。";
+  }
+
+  private MealPlanResponse parseMealPlanResponse(UUID userId, NutritionTarget target, String rawContent)
+      throws JsonProcessingException {
+    if (!StringUtils.hasText(rawContent)) {
+      return null;
+    }
+
+    String sanitized = sanitizeJson(rawContent);
+    JsonNode root = objectMapper.readTree(sanitized);
+
+    if (root == null || !root.has("days")) {
+      return null;
+    }
+
+    List<MealPlanDay> days = new ArrayList<>();
+    for (JsonNode dayNode : root.get("days")) {
+      int dayNumber = dayNode.path("dayNumber").asInt(days.size() + 1);
+      List<MealEntry> meals = new ArrayList<>();
+      for (JsonNode mealNode : dayNode.withArray("meals")) {
+        String mealType = mealNode.path("type").asText("meal").toLowerCase(Locale.CHINA);
+        String recipeName = mealNode.path("recipeName").asText(null);
+        Integer calories = mealNode.hasNonNull("calories") ? mealNode.get("calories").asInt() : null;
+        Double protein = mealNode.hasNonNull("protein") ? mealNode.get("protein").asDouble() : null;
+        Double carbs = mealNode.hasNonNull("carbs") ? mealNode.get("carbs").asDouble() : null;
+        Double fat = mealNode.hasNonNull("fat") ? mealNode.get("fat").asDouble() : null;
+
+        MealEntry entry = buildMealEntry(recipeName, mealType, calories, protein, carbs, fat);
+        meals.add(entry);
+      }
+      days.add(new MealPlanDay(dayNumber, meals));
+    }
+
+    return new MealPlanResponse(target, days);
+  }
+
+  private MealEntry buildMealEntry(String recipeName, String mealType, Integer calories, Double protein,
+      Double carbs, Double fat) {
+    Optional<Recipe> recipeOpt = lookupRecipe(recipeName);
+    return new MealEntry(
+        mealType,
+        recipeOpt.map(recipe -> recipe.getId().toString()).orElse(null),
+        recipeName,
+        calories,
+        protein,
+        carbs,
+        fat,
+        recipeOpt.map(Recipe::getDifficulty).orElse(null)
+    );
+  }
+
+  private Optional<Recipe> lookupRecipe(String recipeName) {
+    if (!StringUtils.hasText(recipeName)) {
+      return Optional.empty();
+    }
+    return recipeRepository.findFirstByTitleIgnoreCase(recipeName.trim());
+  }
+
+  private MealPlanResponse fallbackMealPlan(UserProfile profile, NutritionTarget target) {
+    List<Recipe> recipes = recipeRepository.findTop12ByOrderByCreatedAtDesc();
+    if (recipes.isEmpty()) {
+      recipes = recipeRepository.findAll().stream().limit(12).collect(Collectors.toList());
+    }
+    if (recipes.isEmpty()) {
+      log.warn("No recipes available for fallback plan");
+      List<MealPlanDay> empty = new ArrayList<>();
+      return new MealPlanResponse(target, empty);
+    }
+
+    Map<String, Integer> defaultMacros = defaultPerMealMacros(target);
+    List<MealPlanDay> days = new ArrayList<>();
+    String[] mealTypes = {"breakfast", "lunch", "dinner", "snack"};
+
+    for (int day = 1; day <= 7; day++) {
+      List<MealEntry> meals = new ArrayList<>();
+      for (int i = 0; i < mealTypes.length; i++) {
+        Recipe recipe = recipes.get((day * mealTypes.length + i) % recipes.size());
+        meals.add(new MealEntry(
+            mealTypes[i],
+            recipe.getId() != null ? recipe.getId().toString() : null,
+            recipe.getTitle(),
+            defaultMacros.get("calories"),
+            defaultMacros.get("protein").doubleValue(),
+            defaultMacros.get("carbs").doubleValue(),
+            defaultMacros.get("fat").doubleValue(),
+            recipe.getDifficulty()
+        ));
+      }
+      days.add(new MealPlanDay(day, meals));
+    }
+    return new MealPlanResponse(target, days);
+  }
+
+  private Map<String, Integer> defaultPerMealMacros(NutritionTarget target) {
+    Map<String, Integer> macros = new HashMap<>();
+    macros.put("calories", Math.max(350, target.calories() / 4));
+    macros.put("protein", Math.max(20, target.protein() / 4));
+    macros.put("carbs", Math.max(25, target.carbs() / 4));
+    macros.put("fat", Math.max(10, target.fat() / 4));
+    return macros;
+  }
+
+  private String sanitizeJson(String content) {
+    String trimmed = content.trim();
+    if (trimmed.startsWith("```")) {
+      int lastFence = trimmed.lastIndexOf("```");
+      int firstLineBreak = trimmed.indexOf('\n');
+      if (lastFence > firstLineBreak && firstLineBreak >= 0) {
+        trimmed = trimmed.substring(firstLineBreak + 1, lastFence).trim();
+      }
+    }
+    if (trimmed.startsWith("{")) {
+      return trimmed;
+    }
+    int start = trimmed.indexOf('{');
+    int end = trimmed.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      return trimmed.substring(start, end + 1);
+    }
+    return trimmed;
+  }
+
+  public record NutritionTarget(int calories, int protein, int carbs, int fat) {}
+
+  public record MealPlanResponse(NutritionTarget target, List<MealPlanDay> days) {}
+
+  public record MealPlanDay(int dayNumber, List<MealEntry> meals) {}
+
+  public record MealEntry(
+      String mealType,
+      String recipeId,
+      String recipeName,
+      Integer calories,
+      Double protein,
+      Double carbs,
+      Double fat,
+      String note
+  ) {}
+}
