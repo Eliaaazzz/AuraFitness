@@ -56,12 +56,13 @@ public class NutritionInsightService {
     String aiAdvice;
     if (cachedAdvice != null && Objects.equals(cachedAdvice.signature(), signatureKey)) {
       aiAdvice = cachedAdvice.advice();
-      adviceStore.refresh(userId, start);
+      adviceStore.refresh(userId, start, cachedAdvice);
     } else {
       UserProfile profile = userProfileRepository.findByUserId(userId)
           .orElseThrow(() -> new EntityNotFoundException("User profile not found: " + userId));
       aiAdvice = buildAiAdvice(profile, summary, logs);
-      adviceStore.put(userId, start, new AdviceEntry(signatureKey, aiAdvice));
+      AdviceEntry entry = new AdviceEntry(signatureKey, aiAdvice);
+      adviceStore.put(userId, start, entry);
     }
 
     return new NutritionInsight(summary, logs, aiAdvice);
@@ -199,7 +200,7 @@ public class NutritionInsightService {
     if (!Objects.equals(latestKey, cached.signature())) {
       adviceStore.invalidate(userId, start);
     } else {
-      adviceStore.refresh(userId, start);
+      adviceStore.refresh(userId, start, cached);
     }
   }
 

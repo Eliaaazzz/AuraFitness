@@ -66,6 +66,25 @@ Backend services for the Camera First Fitness MVP. This repository includes a Sp
    ./test-pose-analysis.sh
    ```
 
+### Additional Documentation
+- [docs/api-key-provisioning.md](docs/api-key-provisioning.md) – mint tenant-bound API keys for mobile clients.
+- [docs/nutrition-cache-usage.md](docs/nutrition-cache-usage.md) – use the shared nutrition advice cache across services.
+- **Saved Library Sorting Quick Reference** – the `/api/v1/workouts|recipes/saved` endpoints accept a comma-delimited `sort` parameter. Examples:
+  ```bash
+  # Most recent first (default)
+  curl -H "X-API-Key: ..." "http://localhost:8080/api/v1/workouts/saved"
+
+  # Sort by workout duration then fallback to savedAt
+  curl -H "X-API-Key: ..." "http://localhost:8080/api/v1/workouts/saved?sort=duration,asc"
+
+  # Sort recipes by prep time with newest first as tiebreaker
+  curl -H "X-API-Key: ..." "http://localhost:8080/api/v1/recipes/saved?sort=time,desc"
+  ```
+  Supported fields:
+  - Workouts: `savedAt` (default), `duration`
+  - Recipes: `savedAt` (default), `time`, `difficulty`
+  Append `asc` or `desc` to control direction; unspecified direction defaults to `desc`.
+
 ### API Keys for Local Development
 
 - Provision user-scoped API keys so the React Native app can call `/api/v1/me`:
@@ -89,6 +108,7 @@ curl -X POST http://localhost:8080/api/v1/pose/analyze \
 - `POST /api/v1/pose/analyze` - Analyze workout form
 - `GET /api/v1/pose/history/{userId}` - Get training history
 - `GET /api/v1/pose/progress/{userId}` - Get progress stats
+- `GET /api/v1/gamification/leaderboard/meal-logs?scope=weekly&limit=10` - Meal logging leaderboard (cached, MD3-aligned)
 
 See full documentation: [docs/ai-pose-analysis-implementation-guide.md](docs/ai-pose-analysis-implementation-guide.md)
 

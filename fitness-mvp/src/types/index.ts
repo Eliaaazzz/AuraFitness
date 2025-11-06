@@ -23,8 +23,9 @@ export interface RecipeCard {
   timeMinutes: number;
   difficulty: 'easy' | 'medium' | 'hard';
   calories?: number;
-  nutritionSummary?: Record<string, number | string>;
+  nutritionSummary?: Record<string, unknown> | null;
   tags?: string[];
+  isAiGenerated?: boolean;
 }
 
 export interface UserProfilePayload {
@@ -82,6 +83,51 @@ export interface UploadWorkoutPayload {
 
 export interface UploadRecipePayload {
   ingredients?: string[];
+}
+
+export interface SavedWorkout extends WorkoutCard {
+  savedAt: string;
+  alreadySaved: boolean;
+}
+
+export interface SavedRecipe extends RecipeCard {
+  savedAt: string;
+  alreadySaved: boolean;
+}
+
+export interface Paginated<T> {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+  hasNext: boolean;
+}
+
+export type SortDirection = 'asc' | 'desc';
+
+export type WorkoutSortField = 'savedAt' | 'duration';
+export type RecipeSortField = 'savedAt' | 'time';
+
+export interface SavedSortOption<F extends string> {
+  field: F;
+  direction: SortDirection;
+}
+
+export type WorkoutSortOption = SavedSortOption<WorkoutSortField>;
+export type RecipeSortOption = SavedSortOption<RecipeSortField>;
+
+export interface LeaderboardEntry {
+  position: number;
+  userId: string;
+  displayName: string;
+  score: number;
+  streak: number;
+}
+
+export interface LeaderboardPayload {
+  scope: string;
+  generatedAt: string;
+  entries: LeaderboardEntry[];
 }
 
 export * from './mealPlan';

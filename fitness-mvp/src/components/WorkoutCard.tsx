@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Image, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Image, Linking, Platform, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useSnackbar } from '@/components';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 
-import { Button, Card, Text } from '@/components';
+import { BookmarkButton, Button, Card, Text } from '@/components';
 import { spacing, radii } from '@/utils';
 import type { WorkoutCard as Workout } from '@/types';
 
 type Props = {
   item: Workout;
   onSave?: (id: string) => Promise<boolean> | boolean | void;
+  onRemove?: (id: string) => Promise<boolean> | boolean | void;
+  isSaved?: boolean;
 };
 
 const openYouTube = async (youtubeId?: string) => {
@@ -26,26 +28,42 @@ const openYouTube = async (youtubeId?: string) => {
   Linking.openURL(webUrl);
 };
 
-export const WorkoutCard = ({ item, onSave }: Props) => {
+export const WorkoutCard = ({ item, onSave, onRemove, isSaved }: Props) => {
   const [saving, setSaving] = useState(false);
   const { showSnackbar } = useSnackbar();
   const level = item.level?.toUpperCase?.() ?? '—';
   const duration = item.durationMinutes ? `${item.durationMinutes} min` : '—';
   const equipment = (item.equipment ?? []).join(', ');
 
-  const handleSave = async () => {
-    if (!onSave || saving) return;
+  const handleBookmark = async () => {
+    const removeAction = isSaved && onRemove;
+    const handler = removeAction ? onRemove : onSave;
+    if (!handler || saving) return;
     try {
       setSaving(true);
-      const result = await Promise.resolve(onSave(item.id));
+      const result = await Promise.resolve(handler(item.id));
       const ok = result === undefined ? true : Boolean(result);
       if (ok) {
-        showSnackbar('Saved to your workouts', { variant: 'success' });
+        showSnackbar(removeAction ? 'Removed from your workouts' : 'Saved to your workouts', {
+          variant: 'success',
+        });
       } else {
-        showSnackbar('Failed to save', { variant: 'error', actionLabel: 'Retry', onAction: handleSave });
+        // Error haptic feedback
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        showSnackbar(removeAction ? 'Failed to remove' : 'Failed to save', {
+          variant: 'error',
+          actionLabel: 'Retry',
+          onAction: handleBookmark,
+        });
       }
     } catch (e: any) {
-      showSnackbar(getFriendlyErrorMessage(e), { variant: 'error', actionLabel: 'Retry', onAction: handleSave });
+      // Error haptic feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      showSnackbar(getFriendlyErrorMessage(e), {
+        variant: 'error',
+        actionLabel: 'Retry',
+        onAction: handleBookmark,
+      });
     } finally {
       setSaving(false);
     }
@@ -67,9 +85,13 @@ export const WorkoutCard = ({ item, onSave }: Props) => {
 
       <View style={styles.row}>
         <Button title="▶ Watch Video" onPress={() => openYouTube(item.youtubeId)} />
-        <Pressable accessibilityRole="button" onPress={handleSave} disabled={saving}>
-          <Feather name="bookmark" size={20} />
-        </Pressable>
+        <BookmarkButton
+          isSaved={!!isSaved}
+          isLoading={saving}
+          onPress={handleBookmark}
+          color="#4ECDC4"
+          accessibilityLabel={isSaved ? 'Remove workout from library' : 'Save workout to library'}
+        />
       </View>
     </Card>
   );

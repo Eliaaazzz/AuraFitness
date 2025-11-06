@@ -2,10 +2,11 @@ package com.fitnessapp.backend.repository;
 
 import com.fitnessapp.backend.domain.UserSavedRecipe;
 import com.fitnessapp.backend.domain.UserSavedRecipe.Id;
-import java.util.List;
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserSavedRecipeRepository extends JpaRepository<UserSavedRecipe, Id> {
-  List<UserSavedRecipe> findByUser_Email(String email);
+  Page<UserSavedRecipe> findByUser_Id(UUID userId, Pageable pageable);
 }
-

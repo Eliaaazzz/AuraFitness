@@ -11,6 +11,10 @@ import com.fitnessapp.backend.recipe.MealPlanHistoryService;
 import com.fitnessapp.backend.repository.RecipeRepository;
 import com.fitnessapp.backend.repository.UserProfileRepository;
 import com.fitnessapp.backend.repository.WorkoutSessionRepository;
+import com.fitnessapp.backend.service.quota.QuotaExceededException;
+import com.fitnessapp.backend.service.quota.QuotaService;
+import com.fitnessapp.backend.service.quota.QuotaType;
+import com.fitnessapp.backend.service.quota.QuotaUsage;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatMessageRole;
 import jakarta.persistence.EntityNotFoundException;
@@ -48,6 +52,7 @@ public class SmartRecipeService {
   private final ChatCompletionClient chatCompletionClient;
   private final ObjectMapper objectMapper;
   private final StringRedisTemplate redisTemplate;
+  private final QuotaService quotaService;
 
   @Value("${app.openai.meal-model:${app.openai.model:gpt-4o}}")
   private String mealPlanModel;
@@ -56,8 +61,18 @@ public class SmartRecipeService {
   private long cacheTtlHours;
 
   public MealPlanResponse generateMealPlan(UUID userId) {
+    // Check quota before expensive AI operation
+    log.debug("Checking AI recipe generation quota for user: {}", userId);
+    QuotaUsage quotaUsage = quotaService.checkQuota(userId, QuotaType.AI_RECIPE_GENERATION);
+    
+    if (quotaUsage.exceeded()) {
+      log.warn("User {} exceeded AI recipe quota: {}/{}", userId, quotaUsage.used(), quotaUsage.limit());
+      throw new QuotaExceededException(quotaUsage);
+    }
+    
     MealPlanResponse cached = readCachedPlan(userId);
     if (cached != null) {
+      log.debug("Returning cached meal plan for user {} (quota not consumed)", userId);
       return cached;
     }
 
@@ -71,6 +86,11 @@ public class SmartRecipeService {
     NutritionTarget target = computeNutritionTarget(profile, sessions);
 
     try {
+      // Consume quota BEFORE making AI call
+      quotaService.consumeQuota(userId, QuotaType.AI_RECIPE_GENERATION);
+      log.info("AI recipe generation quota consumed for user {} ({}/{})", 
+          userId, quotaUsage.used() + 1, quotaUsage.limit());
+      
       String prompt = buildPrompt(profile, target, sessions);
       List<ChatMessage> messages = List.of(
           new ChatMessage(ChatMessageRole.SYSTEM.value(),
@@ -88,8 +108,12 @@ public class SmartRecipeService {
 
       persistAndCachePlan(userId, response, "AI");
       return response;
+    } catch (QuotaExceededException ex) {
+      // Re-throw quota exceptions
+      throw ex;
     } catch (Exception ex) {
       log.error("Failed to generate meal plan for user {} via GPT. Using fallback.", userId, ex);
+      // Note: Fallback does NOT consume quota since it doesn't use AI
       MealPlanResponse fallback = fallbackMealPlan(profile, target);
       persistAndCachePlan(userId, fallback, "FALLBACK");
       return fallback;

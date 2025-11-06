@@ -22,6 +22,7 @@ import com.fitnessapp.backend.recipe.SmartRecipeService.NutritionTarget;
 import com.fitnessapp.backend.repository.RecipeRepository;
 import com.fitnessapp.backend.repository.UserProfileRepository;
 import com.fitnessapp.backend.repository.WorkoutSessionRepository;
+import com.fitnessapp.backend.service.quota.QuotaService;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,6 +63,9 @@ class SmartRecipeServiceTest {
   @Mock
   private ValueOperations<String, String> valueOperations;
 
+  @Mock
+  private QuotaService quotaService;
+
   private ObjectMapper objectMapper;
 
   private SmartRecipeService smartRecipeService;
@@ -72,7 +76,7 @@ class SmartRecipeServiceTest {
     when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     lenient().doNothing().when(valueOperations).set(anyString(), anyString(), any(Duration.class));
     smartRecipeService = new SmartRecipeService(userProfileRepository, workoutSessionRepository,
-        recipeRepository, mealPlanHistoryService, chatCompletionClient, objectMapper, redisTemplate);
+        recipeRepository, mealPlanHistoryService, chatCompletionClient, objectMapper, redisTemplate, quotaService);
     ReflectionTestUtils.setField(smartRecipeService, "mealPlanModel", "gpt-4o");
     ReflectionTestUtils.setField(smartRecipeService, "cacheTtlHours", 24L);
     lenient().when(mealPlanHistoryService.latestPlan(any())).thenReturn(Optional.empty());

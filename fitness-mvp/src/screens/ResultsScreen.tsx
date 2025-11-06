@@ -3,28 +3,52 @@ import { Image, StyleSheet, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { SafeAreaWrapper, Container, Card, Text, Button, WorkoutCard, RecipeCard } from '@/components';
 import { spacing } from '@/utils';
-import { useSavedWorkouts, useSaveWorkout, useSavedRecipes, useSaveRecipe } from '@/services';
+import {
+  DEFAULT_SAVED_PAGE_SIZE,
+  useSavedWorkouts,
+  useSaveWorkout,
+  useSavedRecipes,
+  useSaveRecipe,
+  useRemoveWorkout,
+  useRemoveRecipe,
+  DEFAULT_WORKOUT_SORT,
+  DEFAULT_RECIPE_SORT,
+} from '@/services';
 import useCurrentUser from '@/hooks/useCurrentUser';
 
 export const ResultsScreen = () => {
   const route = useRoute<any>();
   const currentUser = useCurrentUser();
   const userId = currentUser.data?.userId;
-  const savedWorkouts = useSavedWorkouts(userId);
-  const saveWorkout = useSaveWorkout(userId);
-  const savedRecipes = useSavedRecipes(userId);
-  const saveRecipe = useSaveRecipe(userId);
+  const savedWorkouts = useSavedWorkouts(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_WORKOUT_SORT);
+  const saveWorkout = useSaveWorkout(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_WORKOUT_SORT);
+  const savedRecipes = useSavedRecipes(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_RECIPE_SORT);
+  const saveRecipe = useSaveRecipe(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_RECIPE_SORT);
+  const removeWorkout = useRemoveWorkout(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_WORKOUT_SORT);
+  const removeRecipe = useRemoveRecipe(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_RECIPE_SORT);
   const [savedTab, setSavedTab] = useState<'workouts' | 'recipes'>('workouts');
 
   const hasRouteWorkouts = Array.isArray(route.params?.workouts) && route.params.workouts.length > 0;
   const hasRouteRecipes = Array.isArray(route.params?.recipes) && route.params.recipes.length > 0;
 
+  const savedWorkoutItems = useMemo(
+    () => savedWorkouts.data?.pages.flatMap((page) => page.items) ?? [],
+    [savedWorkouts.data],
+  );
+  const savedRecipeItems = useMemo(
+    () => savedRecipes.data?.pages.flatMap((page) => page.items) ?? [],
+    [savedRecipes.data],
+  );
+
   const showingRecipes = hasRouteRecipes || (!hasRouteWorkouts && !hasRouteRecipes && savedTab === 'recipes');
   const items: any[] = useMemo(() => {
     if (hasRouteRecipes) return route.params.recipes as any[];
     if (hasRouteWorkouts) return route.params.workouts as any[];
-    return showingRecipes ? (savedRecipes.data ?? []) : (savedWorkouts.data ?? []);
-  }, [hasRouteRecipes, hasRouteWorkouts, route.params, showingRecipes, savedRecipes.data, savedWorkouts.data]);
+    return showingRecipes ? savedRecipeItems : savedWorkoutItems;
+  }, [hasRouteRecipes, hasRouteWorkouts, route.params, showingRecipes, savedRecipeItems, savedWorkoutItems]);
+
+  const savedWorkoutIds = useMemo(() => new Set(savedWorkoutItems.map((w) => w.id)), [savedWorkoutItems]);
+  const savedRecipeIds = useMemo(() => new Set(savedRecipeItems.map((r) => r.id)), [savedRecipeItems]);
 
   if (!hasRouteRecipes && !hasRouteWorkouts) {
     if (currentUser.isLoading) {
@@ -100,15 +124,33 @@ export const ResultsScreen = () => {
         )}
 
         <View style={styles.grid}>
-          {items.map((it) => (
-            <View key={it.id} style={styles.card}>
-              {showingRecipes ? (
-                <RecipeCard item={it} onSave={(id) => saveRecipe.mutateAsync(id)} />
-              ) : (
-                <WorkoutCard item={it} onSave={(id) => saveWorkout.mutateAsync(id)} />
-              )}
-            </View>
-          ))}
+          {items.map((it) => {
+            const isSaved = showingRecipes
+              ? savedRecipeIds.has(it.id) || it.alreadySaved
+              : savedWorkoutIds.has(it.id) || it.alreadySaved;
+            return (
+              <View key={it.id} style={styles.card}>
+                {showingRecipes ? (
+                  <RecipeCard
+                    item={it}
+                    isSaved={isSaved}
+                    onSave={(id) => saveRecipe.mutateAsync(id)}
+                    onRemove={(id) => removeRecipe.mutateAsync(id)}
+                  />
+                ) : (
+                  <WorkoutCard
+                    item={it}
+                    isSaved={isSaved}
+                    onSave={(id) => saveWorkout.mutateAsync(id)}
+                    onRemove={(id) => removeWorkout.mutateAsync(id)}
+                  />
+                )}
+                {isSaved && (
+                  <Text variant="caption" style={styles.savedTag}>已保存到你的收藏</Text>
+                )}
+              </View>
+            );
+          })}
         </View>
 
         <View style={styles.footer}>
@@ -151,5 +193,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     gap: spacing.sm,
     alignItems: 'center',
+  },
+  savedTag: {
+    marginTop: spacing.xs,
+    color: '#f97316',
+    opacity: 0.85,
   },
 });

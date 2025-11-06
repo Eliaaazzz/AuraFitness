@@ -11,6 +11,7 @@ import { RecipesScreen } from '@/screens/RecipesScreen';
 import { ResultsScreen } from '@/screens/ResultsScreen';
 import { DesignSystemScreen } from '@/screens/DesignSystemScreen';
 import { MealPlanScreen } from '@/screens/MealPlanScreen';
+import { CommunityScreen } from '@/screens/CommunityScreen';
 import { BRAND_COLORS, TAB_ICON_SIZE } from '@/utils';
 
 const Tab = createBottomTabNavigator();
@@ -102,6 +103,14 @@ export const AppNavigator = () => {
                     color={color}
                   />
                 );
+              case 'Community':
+                return (
+                  <MaterialCommunityIcons
+                    name={focused ? 'trophy' : 'trophy-outline'}
+                    size={focused ? TAB_ICON_SIZE.focused : TAB_ICON_SIZE.default}
+                    color={color}
+                  />
+                );
               case 'MealPlan':
                 return (
                   <MaterialCommunityIcons
@@ -133,6 +142,7 @@ export const AppNavigator = () => {
         })}
       >
         <Tab.Screen name="Capture" component={CaptureScreen} options={{ title: 'Capture' }} />
+        <Tab.Screen name="Community" component={CommunityScreen} options={{ title: 'Community' }} />
         <Tab.Screen name="Workouts" component={WorkoutsScreen} options={{ title: 'Workouts' }} />
         <Tab.Screen name="MealPlan" component={MealPlanScreen} options={{ title: 'Meal Plan' }} />
         <Tab.Screen name="Recipes" component={RecipesScreen} options={{ title: 'Recipes' }} />
