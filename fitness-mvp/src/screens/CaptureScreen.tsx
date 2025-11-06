@@ -15,7 +15,21 @@ import {
 import { useSnackbar } from '@/components';
 import { formatDifficulty, formatMinutes, formatNumber, compressImage, getFileSize, openSettingsAndCheck } from '@/utils';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { permissionStorage, preferenceStorage, useSaveRecipe, useSaveWorkout, useSavedRecipes, useSavedWorkouts, useUploadRecipe, useUploadWorkout } from '@/services';
+import {
+  DEFAULT_SAVED_PAGE_SIZE,
+  permissionStorage,
+  preferenceStorage,
+  useRemoveRecipe,
+  useRemoveWorkout,
+  useSaveRecipe,
+  useSaveWorkout,
+  useSavedRecipes,
+  useSavedWorkouts,
+  useUploadRecipe,
+  useUploadWorkout,
+  DEFAULT_WORKOUT_SORT,
+  DEFAULT_RECIPE_SORT,
+} from '@/services';
 import { useNavigation } from '@react-navigation/native';
 import { useCameraPermission } from '@/hooks/useCameraPermission';
 import { useGalleryPermission } from '@/hooks/useGalleryPermission';
@@ -44,6 +58,7 @@ export const CaptureScreen = () => {
   const { requestWithTopSnackbar } = usePermissionHelper();
   const currentUser = useCurrentUser();
   const userId = currentUser.data?.userId;
+  const savedPageSize = DEFAULT_SAVED_PAGE_SIZE;
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ResultTab>('workouts');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -53,13 +68,17 @@ export const CaptureScreen = () => {
 
   const uploadWorkout = useUploadWorkout();
   const uploadRecipe = useUploadRecipe();
-  const saveWorkoutMutation = useSaveWorkout(userId);
-  const saveRecipeMutation = useSaveRecipe(userId);
-  const savedWorkoutsQuery = useSavedWorkouts(userId);
-  const savedRecipesQuery = useSavedRecipes(userId);
+  const saveWorkoutMutation = useSaveWorkout(userId, savedPageSize, DEFAULT_WORKOUT_SORT);
+  const removeWorkoutMutation = useRemoveWorkout(userId, savedPageSize, DEFAULT_WORKOUT_SORT);
+  const saveRecipeMutation = useSaveRecipe(userId, savedPageSize, DEFAULT_RECIPE_SORT);
+  const removeRecipeMutation = useRemoveRecipe(userId, savedPageSize, DEFAULT_RECIPE_SORT);
+  const savedWorkoutsQuery = useSavedWorkouts(userId, savedPageSize, DEFAULT_WORKOUT_SORT);
+  const savedRecipesQuery = useSavedRecipes(userId, savedPageSize, DEFAULT_RECIPE_SORT);
 
   const [workoutResults, setWorkoutResults] = useState<WorkoutCard[]>([]);
   const [recipeResults, setRecipeResults] = useState<RecipeCard[]>([]);
+  const [savedWorkoutIds, setSavedWorkoutIds] = useState<Set<string>>(new Set());
+  const [savedRecipeIds, setSavedRecipeIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (currentUser.isError) {
@@ -71,6 +90,20 @@ export const CaptureScreen = () => {
       if (val) setEquipmentChoice(val);
     });
   }, [currentUser.isError, currentUser.error, showTopSnackbar]);
+
+  useEffect(() => {
+    if (savedWorkoutsQuery.data?.pages) {
+      const ids = savedWorkoutsQuery.data.pages.flatMap((page) => page.items.map((item) => item.id));
+      setSavedWorkoutIds(new Set(ids));
+    }
+  }, [savedWorkoutsQuery.data]);
+
+  useEffect(() => {
+    if (savedRecipesQuery.data?.pages) {
+      const ids = savedRecipesQuery.data.pages.flatMap((page) => page.items.map((item) => item.id));
+      setSavedRecipeIds(new Set(ids));
+    }
+  }, [savedRecipesQuery.data]);
 
   const handleRequestCamera = async () => {
     const ok = await requestWithTopSnackbar(cameraPerm.request, cameraPerm.refresh, {
@@ -188,45 +221,63 @@ export const CaptureScreen = () => {
     }
   }, [capturedImage, uploadRecipe]);
 
-  const handleSaveWorkout = useCallback(
-    async (id: string) => {
-      if (!userId) {
-        showSnackbar('请先登录以保存内容', { variant: 'error' });
-        return;
-      }
-      try {
-        await saveWorkoutMutation.mutateAsync(id);
-        savedWorkoutsQuery.refetch();
-        showSnackbar('Workout saved to your library', { variant: 'success' });
-      } catch (error) {
-        showSnackbar(
-          error instanceof Error ? error.message : 'Unable to save workout. Try again later.',
-          { variant: 'error', actionLabel: 'Retry', onAction: () => handleSaveWorkout(id) },
-        );
-      }
-    },
-    [saveWorkoutMutation, savedWorkoutsQuery, showSnackbar, userId],
-  );
+  const handleToggleWorkout = useCallback(async (id: string) => {
+    if (!userId) {
+      showSnackbar('请先登录以保存内容', { variant: 'error' });
+      return;
+    }
+    try {
+        if (savedWorkoutIds.has(id)) {
+          await removeWorkoutMutation.mutateAsync(id);
+          setSavedWorkoutIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          showSnackbar('Removed from your workouts', { variant: 'success' });
+        } else {
+          await saveWorkoutMutation.mutateAsync(id);
+          setSavedWorkoutIds((prev) => {
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+          });
+          showSnackbar('Workout saved to your library', { variant: 'success' });
+        }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '操作失败，请稍后重试';
+      showSnackbar(message, { variant: 'error', actionLabel: 'Retry', onAction: () => handleToggleWorkout(id) });
+    }
+  }, [removeWorkoutMutation, saveWorkoutMutation, savedWorkoutIds, showSnackbar, userId]);
 
-  const handleSaveRecipe = useCallback(
-    async (id: string) => {
-      if (!userId) {
-        showSnackbar('请先登录以保存内容', { variant: 'error' });
-        return;
-      }
-      try {
-        await saveRecipeMutation.mutateAsync(id);
-        savedRecipesQuery.refetch();
-        showSnackbar('Recipe saved to your library', { variant: 'success' });
-      } catch (error) {
-        showSnackbar(
-          error instanceof Error ? error.message : 'Unable to save recipe. Try again later.',
-          { variant: 'error', actionLabel: 'Retry', onAction: () => handleSaveRecipe(id) },
-        );
-      }
-    },
-    [saveRecipeMutation, savedRecipesQuery, showSnackbar, userId],
-  );
+  const handleToggleRecipe = useCallback(async (id: string) => {
+    if (!userId) {
+      showSnackbar('请先登录以保存内容', { variant: 'error' });
+      return;
+    }
+    try {
+        if (savedRecipeIds.has(id)) {
+          await removeRecipeMutation.mutateAsync(id);
+          setSavedRecipeIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          showSnackbar('Removed from your recipes', { variant: 'success' });
+        } else {
+          await saveRecipeMutation.mutateAsync(id);
+          setSavedRecipeIds((prev) => {
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+          });
+          showSnackbar('Recipe saved to your library', { variant: 'success' });
+        }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '操作失败，请稍后重试';
+      showSnackbar(message, { variant: 'error', actionLabel: 'Retry', onAction: () => handleToggleRecipe(id) });
+    }
+  }, [removeRecipeMutation, saveRecipeMutation, savedRecipeIds, showSnackbar, userId]);
 
   const shouldShowCamera = cameraPerm.state === 'granted';
   const permissionDenied = cameraPerm.state === 'denied';
@@ -264,33 +315,51 @@ export const CaptureScreen = () => {
 
     return (
       <ScrollView contentContainerStyle={styles.resultList} showsVerticalScrollIndicator={false}>
-        {results.map((item) => (
-          <Card key={item.id} style={styles.resultCard}>
-            <Text variant="heading2" weight="bold">
-              {item.title}
-            </Text>
-            {activeTab === 'workouts' ? (
-              <View style={styles.resultMetaRow}>
-                <Text variant="caption">Duration: {formatMinutes((item as WorkoutCard).durationMinutes)}</Text>
-                <Text variant="caption">Level: {(item as WorkoutCard).level.toUpperCase()}</Text>
-                <Text variant="caption">Views: {formatNumber((item as WorkoutCard).viewCount)}</Text>
-              </View>
-            ) : (
-              <View style={styles.resultMetaRow}>
-                <Text variant="caption">Time: {formatMinutes((item as RecipeCard).timeMinutes)}</Text>
-                <Text variant="caption">Difficulty: {formatDifficulty((item as RecipeCard).difficulty)}</Text>
-              </View>
-            )}
-            <Button
-              title="Save"
-              variant="secondary"
-              onPress={() => (activeTab === 'workouts' ? handleSaveWorkout(item.id) : handleSaveRecipe(item.id))}
-            />
-          </Card>
-        ))}
+        {results.map((item) => {
+          const isWorkout = activeTab === 'workouts';
+          const isSaved = isWorkout ? savedWorkoutIds.has(item.id) : savedRecipeIds.has(item.id);
+          return (
+            <Card key={item.id} style={styles.resultCard}>
+              <Text variant="heading2" weight="bold">
+                {item.title}
+              </Text>
+              {isWorkout ? (
+                <View style={styles.resultMetaRow}>
+                  <Text variant="caption">Duration: {formatMinutes((item as WorkoutCard).durationMinutes)}</Text>
+                  <Text variant="caption">Level: {(item as WorkoutCard).level.toUpperCase()}</Text>
+                  <Text variant="caption">Views: {formatNumber((item as WorkoutCard).viewCount)}</Text>
+                </View>
+              ) : (
+                <View style={styles.resultMetaRow}>
+                  <Text variant="caption">Time: {formatMinutes((item as RecipeCard).timeMinutes)}</Text>
+                  <Text variant="caption">Difficulty: {formatDifficulty((item as RecipeCard).difficulty)}</Text>
+                </View>
+              )}
+              <Button
+                title={isSaved ? 'Saved' : 'Save'}
+                variant={isSaved ? 'outline' : 'secondary'}
+                onPress={() => (isWorkout ? handleToggleWorkout(item.id) : handleToggleRecipe(item.id))}
+              />
+              {isSaved && (
+                <Text variant="caption" style={styles.savedTag}>已保存到你的收藏</Text>
+              )}
+            </Card>
+          );
+        })}
       </ScrollView>
     );
-  }, [activeTab, capturedImage, errorMessage, handleSaveRecipe, handleSaveWorkout, isProcessing, recipeResults, workoutResults]);
+  }, [
+    activeTab,
+    capturedImage,
+    errorMessage,
+    handleToggleRecipe,
+    handleToggleWorkout,
+    isProcessing,
+    recipeResults,
+    savedRecipeIds,
+    savedWorkoutIds,
+    workoutResults,
+  ]);
 
   if (!cameraPerm.permission) {
     return (
@@ -436,5 +505,10 @@ const styles = StyleSheet.create({
   resultMetaRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  savedTag: {
+    marginTop: spacing.xs,
+    color: '#f97316',
+    opacity: 0.85,
   },
 });

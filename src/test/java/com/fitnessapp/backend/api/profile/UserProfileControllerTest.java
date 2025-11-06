@@ -13,6 +13,8 @@ import com.fitnessapp.backend.domain.User;
 import com.fitnessapp.backend.domain.UserProfile;
 import com.fitnessapp.backend.recipe.SmartRecipeService;
 import com.fitnessapp.backend.service.UserProfileService;
+import com.fitnessapp.backend.service.LeaderboardService;
+import com.fitnessapp.backend.service.NutritionInsightService;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
@@ -46,6 +48,12 @@ class UserProfileControllerTest {
 
   @MockBean
   private SmartRecipeService smartRecipeService;
+
+  @MockBean
+  private LeaderboardService leaderboardService;
+
+  @MockBean
+  private NutritionInsightService nutritionInsightService;
 
   private static UserProfile sampleProfile(UUID userId) {
     User user = User.builder().id(userId).email("foo@example.com").timeBucket(1).level("BEGINNER").dietTilt("BALANCED").build();

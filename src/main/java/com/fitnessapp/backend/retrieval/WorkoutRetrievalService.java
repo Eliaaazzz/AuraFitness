@@ -163,6 +163,7 @@ public class WorkoutRetrievalService {
                 ? "https://www.youtube.com/watch?v=" + video.getYoutubeId()
                 : null;
         return WorkoutCard.builder()
+                .id(video.getId() != null ? video.getId().toString() : null)
                 .youtubeId(video.getYoutubeId())
                 .title(video.getTitle())
                 .durationMinutes(video.getDurationMinutes())

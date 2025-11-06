@@ -1,7 +1,18 @@
 import axios, { AxiosError } from 'axios';
 import { Platform } from 'react-native';
 
-import { ApiResponse, RecipeCard, UploadRecipePayload, UploadWorkoutPayload, WorkoutCard } from '@/types';
+import {
+  ApiResponse,
+  RecipeCard,
+  UploadRecipePayload,
+  UploadWorkoutPayload,
+  WorkoutCard,
+  SavedWorkout,
+  SavedRecipe,
+  Paginated,
+  SortDirection,
+  LeaderboardPayload,
+} from '@/types';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { API_BASE_URL, API_TIMEOUT, YOUTUBE_API_KEY, API_KEY } from '@env';
 
@@ -102,30 +113,87 @@ export const uploadRecipeImage = async (
   return response.data.data;
 };
 
-export const saveWorkout = async (workoutId: string, userId?: string): Promise<boolean> => {
+export const saveWorkout = async (workoutId: string, userId?: string): Promise<SavedWorkout> => {
   const payload: Record<string, unknown> = { workoutId };
   if (userId) payload.userId = userId;
-  const response = await api.post<ApiResponse<{ success: boolean }>>('/api/v1/workouts/save', payload);
-  return response.data.data.success;
+  const response = await api.post<{ data: SavedWorkout }>('/api/v1/workouts/save', payload);
+  return response.data.data;
 };
 
-export const saveRecipe = async (recipeId: string, userId?: string): Promise<boolean> => {
+export const saveRecipe = async (recipeId: string, userId?: string): Promise<SavedRecipe> => {
   const payload: Record<string, unknown> = { recipeId };
   if (userId) payload.userId = userId;
-  const response = await api.post<ApiResponse<{ success: boolean }>>('/api/v1/recipes/save', payload);
+  const response = await api.post<{ data: SavedRecipe }>('/api/v1/recipes/save', payload);
+  return response.data.data;
+};
+
+export const getSavedWorkouts = async (
+  userId?: string,
+  page = 0,
+  size = 20,
+  sort: SortDirection = 'desc',
+): Promise<Paginated<SavedWorkout>> => {
+  const params: Record<string, string | number> = { page, size, sort };
+  if (userId) params.userId = userId;
+  const response = await api.get<{ data: Paginated<SavedWorkout> }>('/api/v1/workouts/saved', {
+    params,
+  });
+  return response.data.data;
+};
+
+export const getSavedRecipes = async (
+  userId?: string,
+  page = 0,
+  size = 20,
+  sort: SortDirection = 'desc',
+): Promise<Paginated<SavedRecipe>> => {
+  const params: Record<string, string | number> = { page, size, sort };
+  if (userId) params.userId = userId;
+  const response = await api.get<{ data: Paginated<SavedRecipe> }>('/api/v1/recipes/saved', {
+    params,
+  });
+  return response.data.data;
+};
+
+export const removeSavedWorkout = async (workoutId: string, userId?: string): Promise<boolean> => {
+  const response = await api.delete<{ data: { success: boolean } }>(`/api/v1/workouts/saved/${workoutId}`, {
+    params: userId ? { userId } : undefined,
+  });
   return response.data.data.success;
 };
 
-export const getSavedWorkouts = async (userId?: string): Promise<WorkoutCard[]> => {
-  const response = await api.get<ApiResponse<WorkoutCard[]>>('/api/v1/workouts/saved', {
+export const removeSavedRecipe = async (recipeId: string, userId?: string): Promise<boolean> => {
+  const response = await api.delete<{ data: { success: boolean } }>(`/api/v1/recipes/saved/${recipeId}`, {
     params: userId ? { userId } : undefined,
+  });
+  return response.data.data.success;
+};
+
+export const getMealLogLeaderboard = async (
+  scope: 'weekly' | 'daily' = 'weekly',
+  limit = 20,
+): Promise<LeaderboardPayload> => {
+  const response = await api.get<{ data: LeaderboardPayload }>(`/api/v1/gamification/leaderboard/meal-logs`, {
+    params: { scope, limit },
   });
   return response.data.data;
 };
 
-export const getSavedRecipes = async (userId?: string): Promise<RecipeCard[]> => {
-  const response = await api.get<ApiResponse<RecipeCard[]>>('/api/v1/recipes/saved', {
-    params: userId ? { userId } : undefined,
+export const generateAIRecipe = async (
+  userId: string,
+  mealType?: string,
+  equipment?: string[],
+): Promise<RecipeCard> => {
+  const payload: Record<string, unknown> = {};
+  if (mealType) payload.mealType = mealType;
+  if (equipment && equipment.length > 0) payload.equipment = equipment;
+
+  const response = await api.post<{ data: RecipeCard }>('/api/v1/recipes/generate', payload, {
+    headers: {
+      'X-User-ID': userId,
+    },
   });
   return response.data.data;
 };
+
+export type { LeaderboardPayload };

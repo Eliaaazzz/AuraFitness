@@ -5,3 +5,4 @@ export * from './DesignSystemScreen';
 export * from './PermissionExplanationScreen';
 export * from './ResultsScreen';
 export * from './MealPlanScreen';
+export * from './CommunityScreen';
