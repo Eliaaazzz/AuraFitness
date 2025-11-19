@@ -131,7 +131,51 @@ public class RecipeImportService {
   }
 
   private JsonNode extractNutritionFromSpoonacular(String json) {
-    return null;
+    try {
+      JsonNode root = objectMapper.readTree(json);
+      JsonNode nutrition = root.path("nutrition");
+      if (nutrition.isMissingNode()) {
+        return createDefaultNutrition();
+      }
+
+      JsonNode nutrients = nutrition.path("nutrients");
+      Map<String, Object> nutritionData = new HashMap<>();
+
+      for (JsonNode nutrient : nutrients) {
+        String name = nutrient.path("name").asText("");
+        double amount = nutrient.path("amount").asDouble(0.0);
+        switch (name) {
+          case "Calories": nutritionData.put("calories", (int) amount); break;
+          case "Protein": nutritionData.put("protein", Math.round(amount * 10.0) / 10.0); break;
+          case "Carbohydrates": nutritionData.put("carbs", Math.round(amount * 10.0) / 10.0); break;
+          case "Fat": nutritionData.put("fat", Math.round(amount * 10.0) / 10.0); break;
+          case "Fiber": nutritionData.put("fiber", Math.round(amount * 10.0) / 10.0); break;
+          case "Sugar": nutritionData.put("sugar", Math.round(amount * 10.0) / 10.0); break;
+          case "Sodium": nutritionData.put("sodium", (int) amount); break;
+        }
+      }
+
+      nutritionData.put("servings", root.path("servings").asInt(1));
+
+      if (!nutritionData.containsKey("calories")) {
+        return createDefaultNutrition();
+      }
+
+      return objectMapper.valueToTree(nutritionData);
+    } catch (Exception e) {
+      log.error("Failed to parse nutrition from Spoonacular: {}", e.getMessage());
+      return createDefaultNutrition();
+    }
+  }
+
+  private JsonNode createDefaultNutrition() {
+    Map<String, Object> defaults = new HashMap<>();
+    defaults.put("calories", 350);
+    defaults.put("protein", 20.0);
+    defaults.put("carbs", 40.0);
+    defaults.put("fat", 12.0);
+    defaults.put("servings", 1);
+    return objectMapper.valueToTree(defaults);
   }
 
   private static int parseInt(String s, int def) {

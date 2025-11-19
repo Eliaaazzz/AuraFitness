@@ -32,8 +32,11 @@ Backend services for the Camera First Fitness MVP. This repository includes a Sp
 ## Prerequisites
 - Docker Desktop 4.0+ (engine + compose plugin)
 - Java 21 (Temurin recommended) if running the app locally without Docker
-- **OpenAI API Key** with GPT-4 Vision access (for pose analysis)
 - Make a copy of `.env.example` as `.env` and populate the values before running services
+- **API Keys Required:**
+  - YouTube API Key (for video metadata)
+  - Spoonacular API Key (for recipe data)
+- **Optional:** OpenAI API Key (only for AI pose analysis feature - app works without it)
 
 ## Quick Start (5 minutes)
 1. Duplicate `.env.example` to `.env` and update any secrets:
@@ -43,7 +46,9 @@ Backend services for the Camera First Fitness MVP. This repository includes a Sp
    Required keys:
    - `YOUTUBE_API_KEY` - For video metadata
    - `SPOONACULAR_API_KEY` - For recipe data
-   - `OPENAI_API_KEY` - **NEW!** For AI pose analysis (get from https://platform.openai.com/api-keys)
+
+   Optional (for AI features):
+   - `OPENAI_API_KEY` - For AI pose analysis (optional - app works without it)
    
 2. Build the Spring Boot artifacts for the first time:
    ```bash
@@ -84,6 +89,33 @@ Backend services for the Camera First Fitness MVP. This repository includes a Sp
   - Workouts: `savedAt` (default), `duration`
   - Recipes: `savedAt` (default), `time`, `difficulty`
   Append `asc` or `desc` to control direction; unspecified direction defaults to `desc`.
+
+### Mobile Builds (Expo / EAS)
+The React Native client lives in `fitness-mvp/` and expects the following env vars in `fitness-mvp/.env`:
+```
+API_BASE_URL=https://api.fitness-mvp.com
+API_KEY=your_api_key
+YOUTUBE_API_KEY=...
+SPOONACULAR_API_KEY=...
+OPENAI_API_KEY=...
+```
+
+Build + distribute:
+```bash
+cd fitness-mvp
+npm install
+npx expo prebuild --platform ios,android   # once, if you need native projects
+npx expo start --clear                     # local smoke with Expo Go
+
+# EAS cloud builds (requires `eas login`)
+npx eas build --platform ios --profile preview
+npx eas build --platform android --profile preview
+
+# To submit to stores later
+npx eas submit --platform ios --profile production
+npx eas submit --platform android --profile production
+```
+Profiles live in `fitness-mvp/eas.json`; use `preview` for internal QA and `production` for client-ready artifacts.
 
 ### API Keys for Local Development
 
@@ -130,14 +162,24 @@ Flyway migrations can be executed manually using:
 ./gradlew flywayMigrate
 ```
 
-## YouTube API Key
-The YouTube Data API v3 key **must not** be committed. Store it in your secrets manager of choice (1Password or AWS Secrets Manager) and inject it via the `YOUTUBE_API_KEY` environment variable referenced by `.env` and `application.yml`.
+## API Keys
 
-## OpenAI API Key (NEW!)
-The GPT-4 Vision API key is required for pose analysis features. Get your key from:
-https://platform.openai.com/api-keys
+### Required Keys
 
-**Note**: Ensure your OpenAI account has GPT-4 Vision access enabled. This feature requires a paid OpenAI subscription.
+**YouTube API Key**
+The YouTube Data API v3 key **must not** be committed. Store it in your secrets manager of choice (1Password or AWS Secrets Manager) and inject it via the `YOUTUBE_API_KEY` environment variable.
+
+**Spoonacular API Key**
+Required for recipe data. Store securely and inject via `SPOONACULAR_API_KEY` environment variable.
+
+### Optional Keys
+
+**OpenAI API Key (OPTIONAL)**
+Only needed if you want AI-powered features (pose analysis, recipe generation, nutrition insights).
+The app works perfectly without OpenAI - all core features (workouts, recipes, user library) are available.
+
+If you want AI features, get your key from: https://platform.openai.com/api-keys
+Set `OPENAI_ENABLED=true` and `OPENAI_API_KEY=your-key` in your `.env` file.
 
 ## Troubleshooting
 - If `docker compose up` fails on the `app` service because dependencies are unavailable, rerun once the database and Redis containers report healthy.
@@ -151,3 +193,50 @@ https://platform.openai.com/api-keys
 | Stop services | `docker compose down` |
 | Run migrations | `./gradlew flywayMigrate` |
 | Format code (Spotless to be added) | _coming soon_ |
+
+## 🚀 Deploy to AWS
+
+Ready to deploy to production? We have complete deployment guides for AWS:
+
+### AWS EC2 Deployment (Recommended for Getting Started)
+**Deploy in 30 minutes with automated scripts!**
+
+- **Cost:** ~$65/month
+- **Complexity:** Low (fully automated)
+- **Best for:** MVP, development, small-scale production
+
+[**→ Quick Start Guide**](AWS-EC2-DEPLOYMENT-SUMMARY.md)
+
+**Deploy in 3 commands:**
+```bash
+cd aws/
+cp .env.deploy.example .env.deploy
+nano .env.deploy  # Add your API keys
+
+./deploy-ec2.sh setup    # 15 min - creates infrastructure
+./deploy-ec2.sh deploy   # 10 min - deploys application
+```
+
+### AWS ECS Fargate (Production Grade)
+**For enterprise applications with auto-scaling**
+
+- **Cost:** ~$90/month
+- **Complexity:** Medium
+- **Best for:** Production, high availability, auto-scaling
+
+[**→ ECS Deployment Guide**](aws/AWS-DEPLOYMENT-GUIDE.md)
+
+### Compare Options
+[**→ EC2 vs ECS Fargate Comparison**](aws/DEPLOYMENT-COMPARISON.md)
+
+---
+
+### Deployment Documentation
+
+| Guide | Purpose | Time |
+|-------|---------|------|
+| [AWS-EC2-DEPLOYMENT-SUMMARY.md](AWS-EC2-DEPLOYMENT-SUMMARY.md) | Complete EC2 overview | Start here |
+| [aws/EC2-QUICKSTART.md](aws/EC2-QUICKSTART.md) | 30-minute quick start | Quick deploy |
+| [aws/EC2-DEPLOYMENT-GUIDE.md](aws/EC2-DEPLOYMENT-GUIDE.md) | Comprehensive EC2 guide | Full details |
+| [aws/DEPLOYMENT-COMPARISON.md](aws/DEPLOYMENT-COMPARISON.md) | EC2 vs Fargate | Compare options |
+| [aws/README.md](aws/README.md) | AWS overview | Main guide |

@@ -8,7 +8,7 @@ import com.fitnessapp.backend.recipe.SmartRecipeService.NutritionTarget;
 import com.fitnessapp.backend.service.RecipeSwapService;
 import com.fitnessapp.backend.service.RecipeSwapService.AlternativeRecipe;
 import com.fitnessapp.backend.service.ShoppingListService;
-import com.fitnessapp.backend.service.ShoppingListService.ShoppingList;
+import com.fitnessapp.backend.service.ShoppingListService.ShoppingListDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -161,7 +161,7 @@ public class MealPlanController {
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart,
       @RequestParam(defaultValue = "json") String format) {
 
-    ShoppingList list = shoppingListService.buildShoppingList(userId, weekStart);
+    ShoppingListDTO list = shoppingListService.buildShoppingList(userId, weekStart);
     if ("pdf".equalsIgnoreCase(format)) {
       byte[] pdf = shoppingListService.renderPdf(list);
       String filename = "shopping-list-" + list.weekStart() + ".pdf";
@@ -188,7 +188,7 @@ public class MealPlanController {
     );
   }
 
-  private ShoppingListResponse toShoppingListResponse(ShoppingList list) {
+  private ShoppingListResponse toShoppingListResponse(ShoppingListDTO list) {
     List<ShoppingListCategoryResponse> categories = list.categories().stream()
         .map(category -> new ShoppingListCategoryResponse(
             category.name(),
