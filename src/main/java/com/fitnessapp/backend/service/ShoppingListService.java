@@ -4,12 +4,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fitnessapp.backend.domain.Recipe;
 import com.fitnessapp.backend.domain.RecipeIngredient;
+import com.fitnessapp.backend.domain.ShoppingList;
+import com.fitnessapp.backend.domain.ShoppingListItem;
 import com.fitnessapp.backend.recipe.MealPlanHistoryService;
 import com.fitnessapp.backend.recipe.SmartRecipeService;
 import com.fitnessapp.backend.recipe.SmartRecipeService.MealEntry;
 import com.fitnessapp.backend.recipe.SmartRecipeService.MealPlanDay;
 import com.fitnessapp.backend.recipe.SmartRecipeService.MealPlanResponse;
 import com.fitnessapp.backend.repository.RecipeRepository;
+import com.fitnessapp.backend.repository.ShoppingListRepository;
+import com.fitnessapp.backend.repository.ShoppingListItemRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -47,10 +51,12 @@ public class ShoppingListService {
 
   private final MealPlanHistoryService mealPlanHistoryService;
   private final RecipeRepository recipeRepository;
+  private final ShoppingListRepository shoppingListRepository;
+  private final ShoppingListItemRepository itemRepository;
   private final ObjectMapper objectMapper;
 
   @Transactional(readOnly = true)
-  public ShoppingList buildShoppingList(UUID userId, LocalDate requestedWeekStart) {
+  public ShoppingListDTO buildShoppingList(UUID userId, LocalDate requestedWeekStart) {
     MealPlanResponseWrapper wrapper = resolvePlan(userId, requestedWeekStart);
     MealPlanResponse plan = wrapper.plan();
     LocalDate weekStart = wrapper.weekStart();
@@ -75,9 +81,9 @@ public class ShoppingListService {
       }
     }
 
-    List<ShoppingList.Category> categories = grouped.entrySet().stream()
+    List<ShoppingListDTO.Category> categories = grouped.entrySet().stream()
         .filter(entry -> !entry.getValue().isEmpty())
-        .map(entry -> new ShoppingList.Category(
+        .map(entry -> new ShoppingListDTO.Category(
             entry.getKey().displayName(),
             entry.getValue().values().stream()
                 .sorted((left, right) -> left.name.compareToIgnoreCase(right.name))
@@ -86,20 +92,20 @@ public class ShoppingListService {
         ))
         .collect(Collectors.toList());
 
-    return new ShoppingList(weekStart, weekEnd, categories, null);
+    return new ShoppingListDTO(weekStart, weekEnd, categories, null);
   }
 
   @Transactional(readOnly = true)
-  public byte[] renderPdf(ShoppingList shoppingList) {
+  public byte[] renderPdf(ShoppingListDTO shoppingList) {
     try (PDDocument document = new PDDocument()) {
       PdfWriter writer = new PdfWriter(document);
       writer.writeTitle("每周购物清单");
       writer.writeSubtitle(shoppingList.weekStart() + " - " + shoppingList.weekEnd());
       writer.writeBlankLine();
 
-      for (ShoppingList.Category category : shoppingList.categories()) {
+      for (ShoppingListDTO.Category category : shoppingList.categories()) {
         writer.writeSectionHeader(category.name());
-        for (ShoppingList.Item item : category.items()) {
+        for (ShoppingListDTO.Item item : category.items()) {
           String quantity = formatQuantity(item.quantity(), item.unit(), item.estimated());
           StringBuilder line = new StringBuilder("• ").append(item.ingredientName());
           if (StringUtils.hasText(quantity)) {
@@ -365,8 +371,8 @@ public class ShoppingListService {
       }
     }
 
-    ShoppingList.Item toItem() {
-      return new ShoppingList.Item(
+    ShoppingListDTO.Item toItem() {
+      return new ShoppingListDTO.Item(
           name,
           quantity,
           StringUtils.hasText(unit) ? unit : null,
@@ -468,12 +474,253 @@ public class ShoppingListService {
     }
   }
 
+  // ============================================================================
+  // Database Persistence Methods (for new ShoppingList entity)
+  // ============================================================================
+
+  /**
+   * Generate and persist shopping list from multiple recipes
+   */
+  @Transactional
+  public ShoppingList generateFromRecipes(UUID userId, String listName, List<UUID> recipeIds) {
+    log.info("Generating shopping list for user {} from {} recipes", userId, recipeIds.size());
+
+    // Fetch all recipes with ingredients
+    List<Recipe> recipes = recipeRepository.findByIdInWithIngredients(recipeIds);
+    if (recipes.isEmpty()) {
+      throw new IllegalArgumentException("No valid recipes found");
+    }
+
+    // Aggregate ingredients
+    Map<String, AggregatedIngredient> aggregationMap = new LinkedHashMap<>();
+    for (Recipe recipe : recipes) {
+      for (RecipeIngredient ri : recipe.getIngredients()) {
+        if (ri.getIngredient() == null || !StringUtils.hasText(ri.getIngredient().getName())) {
+          continue;
+        }
+        String ingredientName = ri.getIngredient().getName().trim();
+        String unit = normalizeUnit(ri.getUnit());
+        String key = ingredientName.toLowerCase(Locale.ROOT) + "|" + unit;
+
+        AggregatedIngredient agg = aggregationMap.computeIfAbsent(key,
+            k -> new AggregatedIngredient(ingredientName, unit, categorizeToDB(ingredientName)));
+
+        agg.addQuantity(ri.getQuantity());
+        agg.addRecipe(recipe.getTitle());
+      }
+    }
+
+    // Build shopping list entity
+    ShoppingList shoppingList = ShoppingList.builder()
+        .userId(userId)
+        .name(listName != null ? listName : generateListNameFromRecipes(recipes))
+        .createdDate(LocalDate.now())
+        .isCompleted(false)
+        .build();
+
+    // Convert to shopping list items
+    for (AggregatedIngredient agg : aggregationMap.values()) {
+      ShoppingListItem item = ShoppingListItem.builder()
+          .ingredientName(agg.name)
+          .quantity(agg.quantity != null ? agg.quantity.doubleValue() : null)
+          .unit(agg.unit)
+          .category(agg.category)
+          .fromRecipes(String.join(", ", agg.sourceRecipes))
+          .isChecked(false)
+          .build();
+      shoppingList.addItem(item);
+    }
+
+    ShoppingList saved = shoppingListRepository.save(shoppingList);
+    log.info("Created shopping list '{}' with {} items", saved.getName(), saved.getItems().size());
+    return saved;
+  }
+
+  /**
+   * Get shopping list by ID with all items
+   */
+  @Transactional(readOnly = true)
+  public Optional<ShoppingList> getShoppingListById(UUID id) {
+    return shoppingListRepository.findByIdWithItems(id);
+  }
+
+  /**
+   * Get all shopping lists for a user
+   */
+  @Transactional(readOnly = true)
+  public List<ShoppingList> getUserShoppingLists(UUID userId) {
+    return shoppingListRepository.findByUserIdOrderByCreatedDateDesc(userId);
+  }
+
+  /**
+   * Get incomplete shopping lists
+   */
+  @Transactional(readOnly = true)
+  public List<ShoppingList> getIncompleteShoppingLists(UUID userId) {
+    return shoppingListRepository.findIncompleteByUserId(userId);
+  }
+
+  /**
+   * Toggle item checked status
+   */
+  @Transactional
+  public void toggleItemChecked(UUID itemId) {
+    ShoppingListItem item = itemRepository.findById(itemId)
+        .orElseThrow(() -> new EntityNotFoundException("Item not found: " + itemId));
+    item.setIsChecked(!item.getIsChecked());
+    itemRepository.save(item);
+  }
+
+  /**
+   * Check all items in list
+   */
+  @Transactional
+  public void checkAllItems(UUID listId) {
+    itemRepository.checkAllItems(listId);
+    log.info("Checked all items in shopping list {}", listId);
+  }
+
+  /**
+   * Uncheck all items in list
+   */
+  @Transactional
+  public void uncheckAllItems(UUID listId) {
+    itemRepository.uncheckAllItems(listId);
+    log.info("Unchecked all items in shopping list {}", listId);
+  }
+
+  /**
+   * Add manual item to shopping list
+   */
+  @Transactional
+  public ShoppingListItem addManualItem(UUID listId, String ingredientName, Double quantity, String unit) {
+    ShoppingList list = shoppingListRepository.findById(listId)
+        .orElseThrow(() -> new EntityNotFoundException("Shopping list not found: " + listId));
+
+    ShoppingListItem item = ShoppingListItem.builder()
+        .ingredientName(ingredientName)
+        .quantity(quantity)
+        .unit(unit)
+        .category(categorizeToDB(ingredientName))
+        .fromRecipes("Manual entry")
+        .isChecked(false)
+        .build();
+
+    list.addItem(item);
+    shoppingListRepository.save(list);
+    return item;
+  }
+
+  /**
+   * Delete shopping list
+   */
+  @Transactional
+  public void deleteShoppingList(UUID id) {
+    shoppingListRepository.deleteById(id);
+    log.info("Deleted shopping list {}", id);
+  }
+
+  /**
+   * Update shopping list name
+   */
+  @Transactional
+  public ShoppingList updateListName(UUID id, String newName) {
+    ShoppingList list = shoppingListRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException("Shopping list not found: " + id));
+    list.setName(newName);
+    return shoppingListRepository.save(list);
+  }
+
+  /**
+   * Categorize ingredient for database storage (simple categories)
+   */
+  private String categorizeToDB(String ingredientName) {
+    String normalized = ingredientName.toLowerCase(Locale.ROOT);
+
+    // Produce
+    if (matchesAny(normalized, "tomato", "lettuce", "onion", "pepper", "carrot", "spinach",
+                   "broccoli", "potato", "apple", "banana", "orange", "lemon", "mushroom")) {
+      return "produce";
+    }
+    // Meat & Seafood
+    if (matchesAny(normalized, "chicken", "beef", "pork", "turkey", "lamb", "fish",
+                   "salmon", "tuna", "shrimp")) {
+      return "meat";
+    }
+    // Dairy
+    if (matchesAny(normalized, "milk", "cheese", "butter", "yogurt", "cream")) {
+      return "dairy";
+    }
+    // Bakery
+    if (matchesAny(normalized, "bread", "bun", "roll", "bagel", "tortilla", "pita")) {
+      return "bakery";
+    }
+    // Frozen
+    if (matchesAny(normalized, "frozen", "ice cream")) {
+      return "frozen";
+    }
+    // Beverages
+    if (matchesAny(normalized, "water", "juice", "soda", "coffee", "tea", "wine", "beer")) {
+      return "beverages";
+    }
+    // Default to pantry
+    return "pantry";
+  }
+
+  private boolean matchesAny(String text, String... patterns) {
+    for (String pattern : patterns) {
+      if (text.contains(pattern)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private String generateListNameFromRecipes(List<Recipe> recipes) {
+    if (recipes.size() == 1) {
+      return recipes.get(0).getTitle() + " - Shopping List";
+    }
+    return String.format("Meal Plan (%d recipes) - %s", recipes.size(), LocalDate.now());
+  }
+
+  /**
+   * Helper class for ingredient aggregation
+   */
+  private static class AggregatedIngredient {
+    final String name;
+    final String unit;
+    final String category;
+    BigDecimal quantity;
+    final Set<String> sourceRecipes = new LinkedHashSet<>();
+
+    AggregatedIngredient(String name, String unit, String category) {
+      this.name = name;
+      this.unit = unit;
+      this.category = category;
+    }
+
+    void addQuantity(BigDecimal addition) {
+      if (addition == null) return;
+      this.quantity = this.quantity == null ? addition : this.quantity.add(addition);
+    }
+
+    void addRecipe(String recipeName) {
+      if (StringUtils.hasText(recipeName)) {
+        sourceRecipes.add(recipeName);
+      }
+    }
+  }
+
+  // ============================================================================
+  // DTOs for meal plan integration
+  // ============================================================================
+
   private record MealPlanResponseWrapper(MealPlanResponse plan, LocalDate weekStart) {}
 
-  public record ShoppingList(LocalDate weekStart,
-                             LocalDate weekEnd,
-                             List<Category> categories,
-                             BigDecimal estimatedCost) {
+  public record ShoppingListDTO(LocalDate weekStart,
+                                LocalDate weekEnd,
+                                List<Category> categories,
+                                BigDecimal estimatedCost) {
 
     public record Category(String name, List<Item> items) {}
 

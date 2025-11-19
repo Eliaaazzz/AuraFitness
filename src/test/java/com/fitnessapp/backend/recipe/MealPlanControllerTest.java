@@ -21,9 +21,9 @@ import com.fitnessapp.backend.service.RecipeSwapService;
 import com.fitnessapp.backend.service.RecipeSwapService.AlternativeRecipe;
 import com.fitnessapp.backend.service.RecipeSwapService.Nutrition;
 import com.fitnessapp.backend.service.ShoppingListService;
-import com.fitnessapp.backend.service.ShoppingListService.ShoppingList;
-import com.fitnessapp.backend.service.ShoppingListService.ShoppingList.Category;
-import com.fitnessapp.backend.service.ShoppingListService.ShoppingList.Item;
+import com.fitnessapp.backend.service.ShoppingListService.ShoppingListDTO;
+import com.fitnessapp.backend.service.ShoppingListService.ShoppingListDTO.Category;
+import com.fitnessapp.backend.service.ShoppingListService.ShoppingListDTO.Item;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -168,7 +168,7 @@ class MealPlanControllerTest {
   void shoppingListReturnsJson() throws Exception {
     UUID userId = UUID.randomUUID();
     LocalDate start = LocalDate.of(2025, 11, 4);
-    ShoppingList list = new ShoppingList(
+    ShoppingListDTO list = new ShoppingListDTO(
         start,
         start.plusDays(6),
         List.of(new Category("蔬菜水果", List.of(new Item("西兰花", new BigDecimal("2.0"), "棵", false, List.of("低碳晚餐"))))),
@@ -189,7 +189,7 @@ class MealPlanControllerTest {
   void shoppingListPdfReturnsBinary() throws Exception {
     UUID userId = UUID.randomUUID();
     LocalDate start = LocalDate.of(2025, 11, 4);
-    ShoppingList list = new ShoppingList(
+    ShoppingListDTO list = new ShoppingListDTO(
         start,
         start.plusDays(6),
         List.of(),

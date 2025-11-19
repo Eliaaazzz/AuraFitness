@@ -19,11 +19,38 @@ public class CacheConfig {
 
   @Bean
   @ConditionalOnBean(RedisConnectionFactory.class)
-  public RedisCacheManagerBuilderCustomizer nutritionAdviceCacheCustomizer() {
-    return builder -> builder.withCacheConfiguration(
-        "nutritionAdvice",
-        RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(6))
-    );
+  public RedisCacheManagerBuilderCustomizer redisCacheCustomizer() {
+    return builder -> builder
+        // Nutrition advice: 6 hours
+        .withCacheConfiguration(
+            "nutritionAdvice",
+            RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(6))
+        )
+        // Recipe search results: 30 minutes
+        .withCacheConfiguration(
+            "recipeSearch",
+            RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMinutes(30))
+        )
+        // Individual recipes: 2 hours
+        .withCacheConfiguration(
+            "recipes",
+            RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(2))
+        )
+        // Spoonacular API responses: 24 hours (reduce API costs)
+        .withCacheConfiguration(
+            "spoonacular",
+            RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(24))
+        )
+        // Trending recipes: 15 minutes (fresh data)
+        .withCacheConfiguration(
+            "trending",
+            RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMinutes(15))
+        )
+        // Community favorites: 1 hour
+        .withCacheConfiguration(
+            "communityFavorites",
+            RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofHours(1))
+        );
   }
 
   @Bean

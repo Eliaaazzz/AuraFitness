@@ -18,5 +18,15 @@ public class RecipeCard {
     String difficulty;
     String imageUrl;
     List<RecipeStep> steps;
+
+    /**
+     * Nutrition information - ALWAYS included for user display
+     * Contains: calories, protein, carbs, fat, fiber, sugar, sodium, servings
+     */
     Map<String, Object> nutrition;
+
+    /**
+     * List of ingredient names (for display)
+     */
+    List<String> ingredients;
 }

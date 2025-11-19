@@ -12,10 +12,18 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+/**
+ * OpenAI Chat Completion Client
+ *
+ * Only loaded when app.openai.enabled=true
+ * If OpenAI is disabled, this bean won't be created and AI features will be unavailable
+ */
 @Component
+@ConditionalOnProperty(name = "app.openai.enabled", havingValue = "true")
 @RequiredArgsConstructor
 @Slf4j
 public class OpenAiChatCompletionClient implements ChatCompletionClient {

@@ -39,6 +39,12 @@ class ShoppingListServiceTest {
   @Mock
   private RecipeRepository recipeRepository;
 
+  @Mock
+  private com.fitnessapp.backend.repository.ShoppingListRepository shoppingListRepository;
+
+  @Mock
+  private com.fitnessapp.backend.repository.ShoppingListItemRepository shoppingListItemRepository;
+
   private ShoppingListService service;
 
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -48,7 +54,8 @@ class ShoppingListServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new ShoppingListService(mealPlanHistoryService, recipeRepository, objectMapper);
+    service = new ShoppingListService(mealPlanHistoryService, recipeRepository,
+        shoppingListRepository, shoppingListItemRepository, objectMapper);
     userId = UUID.randomUUID();
     recipeId = UUID.randomUUID();
   }
@@ -91,20 +98,20 @@ class ShoppingListServiceTest {
 
     when(recipeRepository.findByIdIn(Set.of(recipeId))).thenReturn(List.of(recipe));
 
-    ShoppingListService.ShoppingList shoppingList = service.buildShoppingList(userId, LocalDate.of(2025, 11, 4));
+    ShoppingListService.ShoppingListDTO shoppingList = service.buildShoppingList(userId, LocalDate.of(2025, 11, 4));
 
     assertThat(shoppingList.categories()).hasSizeGreaterThanOrEqualTo(2);
-    Map<String, List<ShoppingListService.ShoppingList.Item>> byCategory = shoppingList.categories().stream()
-        .collect(java.util.stream.Collectors.toMap(ShoppingListService.ShoppingList.Category::name, ShoppingListService.ShoppingList.Category::items));
-    assertThat(byCategory.get("蛋白肉类")).extracting(ShoppingListService.ShoppingList.Item::ingredientName)
+    Map<String, List<ShoppingListService.ShoppingListDTO.Item>> byCategory = shoppingList.categories().stream()
+        .collect(java.util.stream.Collectors.toMap(ShoppingListService.ShoppingListDTO.Category::name, ShoppingListService.ShoppingListDTO.Category::items));
+    assertThat(byCategory.get("蛋白肉类")).extracting(ShoppingListService.ShoppingListDTO.Item::ingredientName)
         .contains("chicken breast");
-    assertThat(byCategory.get("蔬菜水果")).extracting(ShoppingListService.ShoppingList.Item::ingredientName)
+    assertThat(byCategory.get("蔬菜水果")).extracting(ShoppingListService.ShoppingListDTO.Item::ingredientName)
         .contains("broccoli");
   }
 
   @Test
   void renderPdfProducesBytes() {
-    ShoppingListService.ShoppingList list = new ShoppingListService.ShoppingList(
+    ShoppingListService.ShoppingListDTO list = new ShoppingListService.ShoppingListDTO(
         LocalDate.of(2025, 11, 4),
         LocalDate.of(2025, 11, 10),
         List.of(),
