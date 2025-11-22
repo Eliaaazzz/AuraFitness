@@ -46,7 +46,6 @@ import org.springframework.util.StringUtils;
  * - Available equipment
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class IntelligentRecipeService {
 
@@ -57,10 +56,27 @@ public class IntelligentRecipeService {
   private final UserProfileRepository userProfileRepository;
   private final RecipeRepository recipeRepository;
   private final IngredientRepository ingredientRepository;
-  private final ChatCompletionClient chatCompletionClient;
+  private final Optional<ChatCompletionClient> chatCompletionClient;
   private final ObjectMapper objectMapper;
   private final StringRedisTemplate redisTemplate;
   private final MeterRegistry meterRegistry;
+
+  public IntelligentRecipeService(
+      UserProfileRepository userProfileRepository,
+      RecipeRepository recipeRepository,
+      IngredientRepository ingredientRepository,
+      Optional<ChatCompletionClient> chatCompletionClient,
+      ObjectMapper objectMapper,
+      StringRedisTemplate redisTemplate,
+      MeterRegistry meterRegistry) {
+    this.userProfileRepository = userProfileRepository;
+    this.recipeRepository = recipeRepository;
+    this.ingredientRepository = ingredientRepository;
+    this.chatCompletionClient = chatCompletionClient;
+    this.objectMapper = objectMapper;
+    this.redisTemplate = redisTemplate;
+    this.meterRegistry = meterRegistry;
+  }
 
   @Value("${app.openai.model:gpt-4o}")
   private String recipeModel;
@@ -94,6 +110,29 @@ public class IntelligentRecipeService {
     UserProfile profile = userProfileRepository.findByUserId(userId)
         .orElseThrow(() -> new EntityNotFoundException("User profile not found: " + userId));
 
+    // Check if OpenAI is available
+    if (chatCompletionClient.isEmpty()) {
+      log.warn("OpenAI is not enabled. Using fallback recipe for user {}", userId);
+      meterRegistry.counter("recipe.generation.openai_disabled").increment();
+      GeneratedRecipeResponse fallback = fallbackRecipe(profile, mealType);
+      Recipe savedRecipe = persistRecipe(fallback, userId);
+      return new GeneratedRecipeResponse(
+          savedRecipe.getId().toString(),
+          fallback.title(),
+          fallback.timeMinutes(),
+          fallback.difficulty(),
+          fallback.calories(),
+          fallback.protein(),
+          fallback.carbs(),
+          fallback.fat(),
+          fallback.ingredients(),
+          fallback.steps(),
+          fallback.tips(),
+          fallback.imageUrl(),
+          false
+      );
+    }
+
     try {
       // Build AI prompt
       String prompt = buildPrompt(profile, mealType, equipment);
@@ -107,7 +146,7 @@ public class IntelligentRecipeService {
 
       // Call GPT-4
       long startTime = System.currentTimeMillis();
-      String completion = chatCompletionClient.complete(recipeModel, messages, MAX_TOKENS, TEMPERATURE);
+      String completion = chatCompletionClient.get().complete(recipeModel, messages, MAX_TOKENS, TEMPERATURE);
       long duration = System.currentTimeMillis() - startTime;
 
       meterRegistry.timer("recipe.generation.duration").record(Duration.ofMillis(duration));

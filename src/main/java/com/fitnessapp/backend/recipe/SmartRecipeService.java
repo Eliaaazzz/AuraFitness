@@ -27,10 +27,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -38,7 +36,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class SmartRecipeService {
 
@@ -49,10 +46,29 @@ public class SmartRecipeService {
   private final WorkoutSessionRepository workoutSessionRepository;
   private final RecipeRepository recipeRepository;
   private final MealPlanHistoryService mealPlanHistoryService;
-  private final ChatCompletionClient chatCompletionClient;
+  private final Optional<ChatCompletionClient> chatCompletionClient;
   private final ObjectMapper objectMapper;
   private final StringRedisTemplate redisTemplate;
   private final QuotaService quotaService;
+
+  public SmartRecipeService(
+      UserProfileRepository userProfileRepository,
+      WorkoutSessionRepository workoutSessionRepository,
+      RecipeRepository recipeRepository,
+      MealPlanHistoryService mealPlanHistoryService,
+      Optional<ChatCompletionClient> chatCompletionClient,
+      ObjectMapper objectMapper,
+      StringRedisTemplate redisTemplate,
+      QuotaService quotaService) {
+    this.userProfileRepository = userProfileRepository;
+    this.workoutSessionRepository = workoutSessionRepository;
+    this.recipeRepository = recipeRepository;
+    this.mealPlanHistoryService = mealPlanHistoryService;
+    this.chatCompletionClient = chatCompletionClient;
+    this.objectMapper = objectMapper;
+    this.redisTemplate = redisTemplate;
+    this.quotaService = quotaService;
+  }
 
   @Value("${app.openai.meal-model:${app.openai.model:gpt-4o}}")
   private String mealPlanModel;
@@ -85,12 +101,20 @@ public class SmartRecipeService {
 
     NutritionTarget target = computeNutritionTarget(profile, sessions);
 
+    // Check if OpenAI is available
+    if (chatCompletionClient.isEmpty()) {
+      log.warn("OpenAI is not enabled. Using fallback meal plan for user {}", userId);
+      MealPlanResponse fallback = fallbackMealPlan(profile, target);
+      persistAndCachePlan(userId, fallback, "FALLBACK_NO_OPENAI");
+      return fallback;
+    }
+
     try {
       // Consume quota BEFORE making AI call
       quotaService.consumeQuota(userId, QuotaType.AI_RECIPE_GENERATION);
-      log.info("AI recipe generation quota consumed for user {} ({}/{})", 
+      log.info("AI recipe generation quota consumed for user {} ({}/{})",
           userId, quotaUsage.used() + 1, quotaUsage.limit());
-      
+
       String prompt = buildPrompt(profile, target, sessions);
       List<ChatMessage> messages = List.of(
           new ChatMessage(ChatMessageRole.SYSTEM.value(),
@@ -98,7 +122,7 @@ public class SmartRecipeService {
           new ChatMessage(ChatMessageRole.USER.value(), prompt)
       );
 
-      String completion = chatCompletionClient.complete(mealPlanModel, messages, MAX_TOKENS, 0.3);
+      String completion = chatCompletionClient.get().complete(mealPlanModel, messages, MAX_TOKENS, 0.3);
       MealPlanResponse response = parseMealPlanResponse(userId, target, completion);
 
       if (response == null || response.days().isEmpty()) {

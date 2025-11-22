@@ -19,24 +19,40 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class NutritionInsightService {
 
   private final NutritionTrackingService trackingService;
   private final MealLogRepository mealLogRepository;
   private final UserProfileRepository userProfileRepository;
-  private final ChatCompletionClient chatCompletionClient;
+  private final Optional<ChatCompletionClient> chatCompletionClient;
   private final OpenAiProperties openAiProperties;
   private final ObjectMapper objectMapper;
   private final NutritionAdviceStore adviceStore;
+
+  public NutritionInsightService(
+      NutritionTrackingService trackingService,
+      MealLogRepository mealLogRepository,
+      UserProfileRepository userProfileRepository,
+      Optional<ChatCompletionClient> chatCompletionClient,
+      OpenAiProperties openAiProperties,
+      ObjectMapper objectMapper,
+      NutritionAdviceStore adviceStore) {
+    this.trackingService = trackingService;
+    this.mealLogRepository = mealLogRepository;
+    this.userProfileRepository = userProfileRepository;
+    this.chatCompletionClient = chatCompletionClient;
+    this.openAiProperties = openAiProperties;
+    this.objectMapper = objectMapper;
+    this.adviceStore = adviceStore;
+  }
 
   @Transactional(readOnly = true)
   public NutritionInsight generateWeeklyInsight(UUID userId, LocalDate weekStart) {
@@ -69,6 +85,12 @@ public class NutritionInsightService {
   }
 
   private String buildAiAdvice(UserProfile profile, NutritionSummary summary, List<MealLog> logs) {
+    // Check if OpenAI is available
+    if (chatCompletionClient.isEmpty()) {
+      log.warn("OpenAI is not enabled. Returning fallback nutrition advice.");
+      return buildFallbackAdvice(summary);
+    }
+
     try {
       String profileSection = buildProfileSection(profile, summary);
       String nutritionSection = buildNutritionSection(summary);
@@ -79,20 +101,20 @@ public class NutritionInsightService {
           1) 做得好的地方
           2) 需要关注的风险
           3) 三条可执行的改进建议（每条建议以 "•" 开头）
-          
+
           要求：专业但友好，控制在250字以内，使用简体中文。
-          
+
           用户画像:
           %s
-          
+
           营养摄入总结:
           %s
-          
+
           最近进食记录:
           %s
           """.formatted(profileSection, nutritionSection, logsSection);
 
-      return chatCompletionClient.complete(openAiProperties.getModel(), List.of(
+      return chatCompletionClient.get().complete(openAiProperties.getModel(), List.of(
           new com.theokanning.openai.completion.chat.ChatMessage(
               com.theokanning.openai.completion.chat.ChatMessageRole.SYSTEM.value(),
               "你是一位专业的营养师和健康教练，擅长为健身用户提供科学饮食建议"),
@@ -101,8 +123,53 @@ public class NutritionInsightService {
       ), 450, 0.3);
     } catch (Exception e) {
       log.warn("Failed to build nutrition insight prompt", e);
-      return "无法生成AI建议，请稍后重试";
+      return buildFallbackAdvice(summary);
     }
+  }
+
+  private String buildFallbackAdvice(NutritionSummary summary) {
+    StringBuilder advice = new StringBuilder();
+
+    advice.append("营养摄入分析：\n\n");
+
+    // 分析做得好的地方
+    advice.append("✓ 积极的方面：\n");
+    if (summary.calories().percent() >= 90 && summary.calories().percent() <= 110) {
+      advice.append("• 卡路里摄入控制良好\n");
+    }
+    if (summary.protein().percent() >= 90) {
+      advice.append("• 蛋白质摄入充足\n");
+    }
+    if (advice.length() == advice.indexOf("✓ 积极的方面：\n") + "✓ 积极的方面：\n".length()) {
+      advice.append("• 保持记录饮食的好习惯\n");
+    }
+
+    advice.append("\n⚠ 需要关注：\n");
+    if (!summary.alerts().isEmpty()) {
+      for (String alert : summary.alerts()) {
+        advice.append("• ").append(alert).append("\n");
+      }
+    } else {
+      advice.append("• 目前营养摄入基本均衡\n");
+    }
+
+    advice.append("\n→ 改进建议：\n");
+    if (summary.protein().percent() < 80) {
+      advice.append("• 增加优质蛋白摄入（鸡胸肉、鱼类、豆制品）\n");
+    }
+    if (summary.calories().percent() > 110) {
+      advice.append("• 适当控制总热量，增加蔬菜比例\n");
+    }
+    if (summary.carbs().percent() > 110) {
+      advice.append("• 选择复杂碳水化合物（全麦、糙米、燕麦）\n");
+    }
+    if (advice.length() == advice.lastIndexOf("\n→ 改进建议：\n") + "\n→ 改进建议：\n".length()) {
+      advice.append("• 保持均衡饮食，定时定量进餐\n");
+      advice.append("• 多喝水，每天至少8杯\n");
+      advice.append("• 适当增加蔬菜水果摄入\n");
+    }
+
+    return advice.toString();
   }
 
   private String buildProfileSection(UserProfile profile, NutritionSummary summary) {

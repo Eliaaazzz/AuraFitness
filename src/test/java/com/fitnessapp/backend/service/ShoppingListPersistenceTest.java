@@ -17,8 +17,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Integration tests for shopping list database persistence
  */
-@SpringBootTest
-@ActiveProfiles("dev")
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.flyway.enabled=false",
+        "app.seed.enabled=false"
+})
+@ActiveProfiles("test")
 @Transactional
 class ShoppingListPersistenceTest {
 

@@ -20,8 +20,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  * - Database indexes reduce query time
  * - N+1 query problem is solved
  */
-@SpringBootTest
-@ActiveProfiles("dev")
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.flyway.enabled=false",
+        "app.seed.enabled=false",
+        "spring.data.redis.host=localhost",
+        "spring.data.redis.port=6379"
+})
+@ActiveProfiles("test")
 class RecipePerformanceTest {
 
     @Autowired

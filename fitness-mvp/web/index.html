@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+
+  <!-- Responsive viewport configuration -->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0, user-scalable=yes, viewport-fit=cover"
+  />
+
+  <!-- PWA capabilities -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- App metadata -->
+  <title>FitnessMVP - AI-Powered Fitness & Meal Planning</title>
+  <meta
+    name="description"
+    content="Transform your fitness journey with AI-powered workout discovery and intelligent meal planning. Snap a photo and get personalized workouts and recipes instantly."
+  />
+  <meta name="keywords" content="fitness, workout, meal planning, AI, health, recipes, exercise" />
+  <meta name="author" content="FitnessMVP" />
+
+  <!-- Theme color for mobile browsers -->
+  <meta name="theme-color" content="#FF6B6B" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="FitnessMVP - AI-Powered Fitness & Meal Planning" />
+  <meta property="og:description" content="Transform your fitness journey with AI-powered workout discovery and intelligent meal planning." />
+  <meta property="og:image" content="/assets/icon.png" />
+  <meta property="og:url" content="https://yourapp.com" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="FitnessMVP - AI-Powered Fitness & Meal Planning" />
+  <meta name="twitter:description" content="Transform your fitness journey with AI-powered workout discovery and intelligent meal planning." />
+  <meta name="twitter:image" content="/assets/icon.png" />
+
+  <!-- Disable auto-detection of phone numbers -->
+  <meta name="format-detection" content="telephone=no" />
+
+  <!-- Prevent zoom on input focus (iOS Safari) - optional, remove if you want zoom -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+
+  <!-- Favicon and app icons -->
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/icon.png" />
+
+  <!-- Manifest for PWA -->
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Preconnect to improve performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <style>
+    /**
+     * Base styles for responsive web layout
+     * These prevent flash of unstyled content
+     */
+    * {
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html, body, #root {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      background-color: #ffffff;
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #1a1a1a;
+      }
+    }
+
+    /* Loading indicator */
+    #root:empty::before {
+      content: '';
+      display: block;
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #FF6B6B;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      margin: -25px 0 0 -25px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Prevent text selection on touch devices */
+    @media (pointer: coarse) {
+      * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        user-select: none;
+      }
+
+      /* Allow text selection in input fields */
+      input, textarea {
+        user-select: auto;
+      }
+    }
+
+    /* Custom scrollbar for webkit browsers */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+    }
+
+    /* Responsive utilities */
+    @media (max-width: 639px) {
+      /* Mobile styles */
+      html {
+        font-size: 16px;
+      }
+    }
+
+    @media (min-width: 640px) and (max-width: 1023px) {
+      /* Tablet styles */
+      html {
+        font-size: 17px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      /* Desktop styles */
+      html {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Root element for React Native Web -->
+  <noscript>
+    <div style="display: flex; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center;">
+      <div>
+        <h1>JavaScript Required</h1>
+        <p>Please enable JavaScript in your browser to use FitnessMVP.</p>
+      </div>
+    </div>
+  </noscript>
+
+  <div id="root"></div>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/service-worker.js').then(
+          function(registration) {
+            console.log('ServiceWorker registration successful');
+          },
+          function(err) {
+            console.log('ServiceWorker registration failed: ', err);
+          }
+        );
+      });
+    }
+  </script>
+</body>
+</html>

@@ -5,7 +5,7 @@ import { useSnackbar } from '@/components';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 
 import { BookmarkButton, Button, Card, Text } from '@/components';
-import { spacing, radii } from '@/utils';
+import { spacing, radii, useResponsiveValue } from '@/utils';
 import type { WorkoutCard as Workout } from '@/types';
 
 type Props = {
@@ -34,6 +34,14 @@ export const WorkoutCard = ({ item, onSave, onRemove, isSaved }: Props) => {
   const level = item.level?.toUpperCase?.() ?? '—';
   const duration = item.durationMinutes ? `${item.durationMinutes} min` : '—';
   const equipment = (item.equipment ?? []).join(', ');
+
+  // Responsive image height
+  const imageHeight = useResponsiveValue({
+    mobile: 180,
+    tablet: 220,
+    desktop: 260,
+    wide: 300,
+  });
 
   const handleBookmark = async () => {
     const removeAction = isSaved && onRemove;
@@ -72,9 +80,9 @@ export const WorkoutCard = ({ item, onSave, onRemove, isSaved }: Props) => {
   return (
     <Card style={styles.card}>
       {item.thumbnailUrl ? (
-        <Image source={{ uri: item.thumbnailUrl }} style={styles.image} />
+        <Image source={{ uri: item.thumbnailUrl }} style={[styles.image, { height: imageHeight }]} />
       ) : (
-        <View style={[styles.image, styles.imagePlaceholder]} />
+        <View style={[styles.image, styles.imagePlaceholder, { height: imageHeight }]} />
       )}
 
       <View style={{ gap: spacing.xs }}>

@@ -52,6 +52,9 @@ class FitnessAppApplicationTests {
     @MockBean private com.fitnessapp.backend.service.LeaderboardService leaderboardService;
     @MockBean private com.fitnessapp.backend.repository.UserSavedWorkoutRepository userSavedWorkoutRepository;
     @MockBean private com.fitnessapp.backend.repository.UserSavedRecipeRepository userSavedRecipeRepository;
+    @MockBean private com.fitnessapp.backend.repository.ShoppingListRepository shoppingListRepository;
+    @MockBean private com.fitnessapp.backend.repository.ShoppingListItemRepository shoppingListItemRepository;
+    @MockBean private com.fitnessapp.backend.service.quota.QuotaService quotaService;
 
 	@Test
 	void contextLoads() {
