@@ -12,7 +12,8 @@ import { ResultsScreen } from '@/screens/ResultsScreen';
 import { DesignSystemScreen } from '@/screens/DesignSystemScreen';
 import { MealPlanScreen } from '@/screens/MealPlanScreen';
 import { CommunityScreen } from '@/screens/CommunityScreen';
-import { BRAND_COLORS, TAB_ICON_SIZE } from '@/utils';
+import { GoalsScreen } from '@/screens/GoalsScreen';
+import { BRAND_COLORS, TAB_ICON_SIZE, useResponsive } from '@/utils';
 
 const Tab = createBottomTabNavigator();
 
@@ -54,6 +55,12 @@ const DarkNavigationTheme = {
 
 export const AppNavigator = () => {
   const colorScheme = useColorScheme();
+  const { isDesktop, isTablet, isMobile, isWeb } = useResponsive();
+
+  // Calculate responsive tab bar dimensions
+  const tabBarHeight = isDesktop ? 70 : isTablet ? 65 : Platform.select({ ios: 60, android: 56 });
+  const tabBarPaddingBottom = isDesktop ? 16 : isTablet ? 12 : Platform.select({ ios: 12, android: 8 });
+  const tabBarPaddingTop = isDesktop ? 12 : 8;
 
   return (
     <NavigationContainer theme={colorScheme === 'dark' ? DarkNavigationTheme : LightNavigationTheme}>
@@ -64,10 +71,16 @@ export const AppNavigator = () => {
           tabBarActiveTintColor: BRAND_COLORS.primary,
           tabBarInactiveTintColor: BRAND_COLORS.tabInactive,
           tabBarHideOnKeyboard: true,
+          // Show label text on desktop/tablet for better UX
+          tabBarLabelStyle: {
+            fontSize: isDesktop ? 13 : isTablet ? 12 : 11,
+            fontWeight: '600',
+          },
           tabBarStyle: {
-            height: Platform.select({ ios: 60, android: 56 }),
-            paddingBottom: Platform.select({ ios: 12, android: 8 }),
-            paddingTop: 8,
+            height: tabBarHeight,
+            paddingBottom: tabBarPaddingBottom,
+            paddingTop: tabBarPaddingTop,
+            paddingHorizontal: isDesktop ? 32 : isTablet ? 16 : 0,
             backgroundColor: BRAND_COLORS.surface,
             borderTopWidth: 0,
             elevation: 10,
@@ -75,6 +88,12 @@ export const AppNavigator = () => {
             shadowOpacity: 0.1,
             shadowRadius: 8,
             shadowOffset: { width: 0, height: -2 },
+            // Add max-width constraint on desktop for centered tab bar
+            ...(isDesktop && isWeb && {
+              alignSelf: 'center',
+              width: '100%',
+              maxWidth: 1200,
+            }),
           },
           tabBarBackground,
           tabBarIcon: ({ color, focused }) => {
@@ -119,6 +138,14 @@ export const AppNavigator = () => {
                     color={color}
                   />
                 );
+              case 'Goals':
+                return (
+                  <MaterialCommunityIcons
+                    name={focused ? 'target' : 'target-variant'}
+                    size={focused ? TAB_ICON_SIZE.focused : TAB_ICON_SIZE.default}
+                    color={color}
+                  />
+                );
               case 'DesignSystem':
                 return (
                   <Feather
@@ -146,6 +173,7 @@ export const AppNavigator = () => {
         <Tab.Screen name="Workouts" component={WorkoutsScreen} options={{ title: 'Workouts' }} />
         <Tab.Screen name="MealPlan" component={MealPlanScreen} options={{ title: 'Meal Plan' }} />
         <Tab.Screen name="Recipes" component={RecipesScreen} options={{ title: 'Recipes' }} />
+        <Tab.Screen name="Goals" component={GoalsScreen} options={{ title: 'Goals' }} />
         {__DEV__ && (
           <Tab.Screen name="DesignSystem" component={DesignSystemScreen} options={{ title: 'Design' }} />
         )}

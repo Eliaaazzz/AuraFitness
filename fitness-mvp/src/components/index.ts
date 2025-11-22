@@ -13,4 +13,7 @@ export * from './SnackbarProvider';
 export * from './BookmarkButton';
 export * from './SwipeableCard';
 export * from './FilterModal';
+export * from './ResponsiveGrid';
+export * from './GoalCard';
+export * from './CreateGoalModal';
 export { default as ListSkeleton } from './ListSkeleton';

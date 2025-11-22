@@ -16,16 +16,34 @@ import {
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { API_BASE_URL, API_TIMEOUT, YOUTUBE_API_KEY, API_KEY } from '@env';
 
-const timeout = Number(API_TIMEOUT) || 5000;
+// For web builds, use EXPO_PUBLIC_ prefixed env vars
+const getEnvVar = (key: string, fallback?: string): string => {
+  if (Platform.OS === 'web') {
+    // @ts-ignore - process.env is available in web builds
+    return process.env[`EXPO_PUBLIC_${key}`] || fallback || '';
+  }
+  return fallback || '';
+};
+
+const baseURL = Platform.OS === 'web'
+  ? getEnvVar('API_BASE_URL', 'http://3.104.117.222:8080')
+  : API_BASE_URL;
+
+const timeout = Platform.OS === 'web'
+  ? Number(getEnvVar('API_TIMEOUT', '10000'))
+  : Number(API_TIMEOUT) || 5000;
+
+const youtubeKey = Platform.OS === 'web'
+  ? getEnvVar('YOUTUBE_API_KEY')
+  : YOUTUBE_API_KEY ?? '';
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL,
   timeout,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    'User-Agent': `FitnessMVPMobile/${Platform.OS}`,
-    'X-YouTube-Key': YOUTUBE_API_KEY ?? '',
+    'X-YouTube-Key': youtubeKey,
     'X-API-Key': API_KEY ?? '',
   },
 });

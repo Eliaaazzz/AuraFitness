@@ -5,7 +5,7 @@ import { useSnackbar } from '@/components';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 
 import { BookmarkButton, Button, Card, Text } from '@/components';
-import { radii, spacing } from '@/utils';
+import { radii, spacing, useResponsiveValue } from '@/utils';
 import type { RecipeCard as Recipe } from '@/types';
 
 type Props = {
@@ -21,6 +21,14 @@ export const RecipeCard = ({ item, onSave, onRemove, onStart, isSaved }: Props) 
   const { showSnackbar } = useSnackbar();
   const time = item.timeMinutes ? `${item.timeMinutes} min` : '—';
   const difficulty = item.difficulty ? item.difficulty.toUpperCase() : '—';
+
+  // Responsive image height
+  const imageHeight = useResponsiveValue({
+    mobile: 200,
+    tablet: 240,
+    desktop: 280,
+    wide: 320,
+  });
 
   const handleBookmark = async () => {
     const removeAction = isSaved && onRemove;
@@ -59,9 +67,9 @@ export const RecipeCard = ({ item, onSave, onRemove, onStart, isSaved }: Props) 
   return (
     <Card style={styles.card}>
       {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.image} />
+        <Image source={{ uri: item.imageUrl }} style={[styles.image, { height: imageHeight }]} />
       ) : (
-        <View style={[styles.image, styles.imagePlaceholder]} />
+        <View style={[styles.image, styles.imagePlaceholder, { height: imageHeight }]} />
       )}
 
       <View style={{ gap: spacing.xs }}>

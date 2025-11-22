@@ -38,19 +38,19 @@ ON recipe USING gin(nutrition_summary);
 
 -- Specific JSONB path indexes for common nutrition queries
 CREATE INDEX IF NOT EXISTS idx_recipe_calories
-ON recipe((nutrition_summary->>'calories')::int)
+ON recipe(((nutrition_summary->>'calories')::int))
 WHERE nutrition_summary->>'calories' IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_recipe_protein
-ON recipe((nutrition_summary->>'protein')::float)
+ON recipe(((nutrition_summary->>'protein')::float))
 WHERE nutrition_summary->>'protein' IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_recipe_carbs
-ON recipe((nutrition_summary->>'carbs')::float)
+ON recipe(((nutrition_summary->>'carbs')::float))
 WHERE nutrition_summary->>'carbs' IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_recipe_fat
-ON recipe((nutrition_summary->>'fat')::float)
+ON recipe(((nutrition_summary->>'fat')::float))
 WHERE nutrition_summary->>'fat' IS NOT NULL;
 
 -- 5. Index for created_at (trending/recent recipes)

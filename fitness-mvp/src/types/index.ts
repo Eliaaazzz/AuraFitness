@@ -131,3 +131,149 @@ export interface LeaderboardPayload {
 }
 
 export * from './mealPlan';
+
+// Goal and Reminder Types
+
+export type GoalType =
+  | 'nutrition'       // Daily calorie/macro targets
+  | 'workout'         // Workout frequency/duration
+  | 'hydration'       // Daily water intake
+  | 'sleep'           // Sleep hours/quality
+  | 'weight'          // Weight loss/gain goals
+  | 'habit'           // Custom healthy habits
+  | 'meal_prep';      // Meal planning/prep
+
+export type GoalFrequency =
+  | 'daily'
+  | 'weekly'
+  | 'monthly';
+
+export type GoalStatus =
+  | 'active'
+  | 'completed'
+  | 'paused'
+  | 'failed';
+
+export type ReminderFrequency =
+  | 'once'            // One-time reminder
+  | 'daily'           // Every day
+  | 'weekdays'        // Monday-Friday
+  | 'weekends'        // Saturday-Sunday
+  | 'custom';         // Custom days of week
+
+export type DayOfWeek =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+export interface Goal {
+  id: string;
+  userId: string;
+  type: GoalType;
+  title: string;
+  description?: string;
+  targetValue?: number;           // e.g., 2000 calories, 3 workouts
+  targetUnit?: string;             // e.g., "calories", "workouts", "hours"
+  currentValue?: number;           // Progress towards target
+  frequency: GoalFrequency;        // How often to achieve the goal
+  status: GoalStatus;
+  startDate: string;
+  endDate?: string;                // Optional end date
+  color?: string;                  // UI color for the goal
+  icon?: string;                   // Icon name for the goal
+  reminders: Reminder[];           // Associated reminders
+  progressHistory?: GoalProgress[]; // Historical progress tracking
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GoalProgress {
+  id: string;
+  goalId: string;
+  date: string;                    // Date of progress entry
+  value: number;                   // Actual value achieved
+  notes?: string;
+  createdAt: string;
+}
+
+export interface Reminder {
+  id: string;
+  goalId?: string;                 // Optional: link to a goal
+  userId: string;
+  title: string;
+  body?: string;
+  time: string;                    // HH:mm format (e.g., "09:00")
+  frequency: ReminderFrequency;
+  daysOfWeek?: DayOfWeek[];        // For custom frequency
+  isEnabled: boolean;
+  lastTriggered?: string;
+  nextTrigger?: string;
+  notificationId?: string;         // Local notification identifier
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateGoalPayload {
+  type: GoalType;
+  title: string;
+  description?: string;
+  targetValue?: number;
+  targetUnit?: string;
+  frequency: GoalFrequency;
+  startDate: string;
+  endDate?: string;
+  color?: string;
+  icon?: string;
+  reminders?: CreateReminderPayload[];
+}
+
+export interface UpdateGoalPayload {
+  title?: string;
+  description?: string;
+  targetValue?: number;
+  targetUnit?: string;
+  status?: GoalStatus;
+  endDate?: string;
+  color?: string;
+  icon?: string;
+}
+
+export interface CreateReminderPayload {
+  goalId?: string;
+  title: string;
+  body?: string;
+  time: string;
+  frequency: ReminderFrequency;
+  daysOfWeek?: DayOfWeek[];
+  isEnabled?: boolean;
+}
+
+export interface UpdateReminderPayload {
+  title?: string;
+  body?: string;
+  time?: string;
+  frequency?: ReminderFrequency;
+  daysOfWeek?: DayOfWeek[];
+  isEnabled?: boolean;
+}
+
+export interface LogGoalProgressPayload {
+  goalId: string;
+  value: number;
+  date?: string;
+  notes?: string;
+}
+
+export interface GoalStatistics {
+  totalGoals: number;
+  activeGoals: number;
+  completedGoals: number;
+  completionRate: number;          // Percentage
+  currentStreak: number;           // Days
+  longestStreak: number;           // Days
+  goalsCompletedToday: number;
+}

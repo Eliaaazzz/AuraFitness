@@ -35,5 +35,12 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Environment & Secrets ###
 .env
-.env
+*.pem
+aws/.env.deploy
+
+### Deployment Packages ###
+*-deploy.tar.gz
+deployment/
