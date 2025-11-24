@@ -54,10 +54,10 @@ jobs:
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
           
           echo "📤 Uploading deployment script..."
-          scp -i ~/.ssh/id_rsa infrastructure/frontend/frontend-deploy.sh \
+          scp -i ~/.ssh/id_rsa infrastructure/frontend-deploy.sh \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
-          
-          scp -i ~/.ssh/id_rsa infrastructure/frontend/nginx-frontend.conf \
+
+          scp -i ~/.ssh/id_rsa infrastructure/nginx-frontend.conf \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
           
           echo "🚀 Executing deployment on EC2..."

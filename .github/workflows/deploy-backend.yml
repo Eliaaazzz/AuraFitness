@@ -26,6 +26,7 @@ jobs:
           cache: 'gradle'
       
       - name: Build JAR
+        working-directory: ./backend
         run: |
           chmod +x gradlew
           ./gradlew clean bootJar -x test
@@ -42,11 +43,11 @@ jobs:
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
           
           echo "📤 Uploading JAR file..."
-          scp -i ~/.ssh/id_rsa build/libs/fitness-app-*.jar \
+          scp -i ~/.ssh/id_rsa backend/build/libs/fitness-app-*.jar \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/fitness-app.jar
-          
+
           echo "📤 Uploading deployment script..."
-          scp -i ~/.ssh/id_rsa infrastructure/backend/backend-deploy.sh \
+          scp -i ~/.ssh/id_rsa infrastructure/backend-deploy.sh \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
           
           echo "🚀 Executing deployment on EC2..."
