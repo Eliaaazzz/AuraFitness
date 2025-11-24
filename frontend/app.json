@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "FitnessMVP",
+    "slug": "fitness-mvp",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "platforms": ["ios", "android", "web"],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B6B"
+    },
+    "ios": {
+      "bundleIdentifier": "com.fitnessapp.mvp",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "We need camera access to help you discover workouts and recipes based on your equipment and ingredients.",
+        "NSPhotoLibraryUsageDescription": "We need photo library access so you can choose existing photos of your equipment or ingredients.",
+        "NSUserNotificationsUsageDescription": "We use notifications to remind you about your fitness goals, workouts, and meal plans."
+      }
+    },
+    "android": {
+      "package": "com.fitnessapp.mvp",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF6B6B"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "build": {
+        "babel": {
+          "include": ["@react-navigation"]
+        }
+      },
+      "meta": {
+        "viewport": "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"
+      },
+      "config": {
+        "firebase": {
+          "measurementId": ""
+        }
+      }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF6B6B",
+          "sounds": [],
+          "mode": "production"
+        }
+      ]
+    ],
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#FF6B6B",
+      "androidMode": "default",
+      "androidCollapsedTitle": "FitnessMVP"
+    }
+  }
+}

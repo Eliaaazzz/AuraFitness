@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# Frontend Deployment Script for AWS EC2
+# This script deploys the React Native Web application
+
+set -e
+
+echo "========================================="
+echo "Fitness App Frontend Deployment"
+echo "========================================="
+
+# Configuration
+APP_NAME="fitness-app"
+WEB_ROOT="/var/www/${APP_NAME}"
+NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}"
+NGINX_ENABLED="/etc/nginx/sites-enabled/${APP_NAME}"
+SOURCE_DIR="./dist"
+BACKUP_DIR="/var/backups/${APP_NAME}"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Check if running as root
+if [[ $EUID -ne 0 ]]; then
+   echo -e "${RED}This script must be run as root${NC}"
+   exit 1
+fi
+
+echo -e "${GREEN}Step 1: Checking prerequisites...${NC}"
+
+# Check if nginx is installed
+if ! command -v nginx &> /dev/null; then
+    echo -e "${YELLOW}Nginx not found. Installing...${NC}"
+    apt-get update
+    apt-get install -y nginx
+fi
+
+# Check if source directory exists
+if [ ! -d "${SOURCE_DIR}" ]; then
+    echo -e "${RED}Error: Source directory not found: ${SOURCE_DIR}${NC}"
+    echo "Please ensure you've built the frontend with: npx expo export --platform web"
+    exit 1
+fi
+
+echo -e "${GREEN}Step 2: Creating web root directory...${NC}"
+mkdir -p ${WEB_ROOT}
+mkdir -p ${BACKUP_DIR}
+
+echo -e "${GREEN}Step 3: Backing up existing files...${NC}"
+if [ -d "${WEB_ROOT}" ] && [ "$(ls -A ${WEB_ROOT})" ]; then
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    tar -czf ${BACKUP_DIR}/frontend-${TIMESTAMP}.tar.gz -C ${WEB_ROOT} . 2>/dev/null || true
+    echo "Backup created: ${BACKUP_DIR}/frontend-${TIMESTAMP}.tar.gz"
+fi
+
+echo -e "${GREEN}Step 4: Removing old files...${NC}"
+rm -rf ${WEB_ROOT}/*
+
+echo -e "${GREEN}Step 5: Copying new frontend files...${NC}"
+cp -r ${SOURCE_DIR}/* ${WEB_ROOT}/
+echo "Frontend files copied to ${WEB_ROOT}"
+
+echo -e "${GREEN}Step 6: Creating .env.production for runtime config...${NC}"
+cat > ${WEB_ROOT}/.env.production <<EOF
+# Frontend Runtime Configuration
+# This file can be read by the client-side app
+
+# Backend API URL
+REACT_APP_API_URL=http://localhost:8080
+
+# Environment
+REACT_APP_ENV=production
+EOF
+echo -e "${YELLOW}Update ${WEB_ROOT}/.env.production with your API URL${NC}"
+
+echo -e "${GREEN}Step 7: Setting permissions...${NC}"
+chown -R www-data:www-data ${WEB_ROOT}
+find ${WEB_ROOT} -type f -exec chmod 644 {} \;
+find ${WEB_ROOT} -type d -exec chmod 755 {} \;
+
+echo -e "${GREEN}Step 8: Installing nginx configuration...${NC}"
+if [ -f "./nginx-frontend.conf" ]; then
+    cp ./nginx-frontend.conf ${NGINX_AVAILABLE}
+    echo "Nginx config copied to ${NGINX_AVAILABLE}"
+
+    # Create symlink if it doesn't exist
+    if [ ! -L "${NGINX_ENABLED}" ]; then
+        ln -s ${NGINX_AVAILABLE} ${NGINX_ENABLED}
+        echo "Created symlink: ${NGINX_ENABLED}"
+    fi
+else
+    echo -e "${YELLOW}Warning: nginx-frontend.conf not found in current directory${NC}"
+    echo "You'll need to configure nginx manually"
+fi
+
+echo -e "${GREEN}Step 9: Testing nginx configuration...${NC}"
+nginx -t
+
+echo -e "${GREEN}Step 10: Reloading nginx...${NC}"
+systemctl reload nginx
+
+echo ""
+echo "========================================="
+echo -e "${GREEN}Frontend deployment completed!${NC}"
+echo "========================================="
+echo ""
+echo "Frontend location: ${WEB_ROOT}"
+echo "Nginx config: ${NGINX_AVAILABLE}"
+echo ""
+echo "Useful commands:"
+echo "  - Check nginx status:  sudo systemctl status nginx"
+echo "  - View nginx logs:     sudo tail -f /var/log/nginx/fitness-app-access.log"
+echo "  - Reload nginx:        sudo systemctl reload nginx"
+echo "  - Test nginx config:   sudo nginx -t"
+echo ""
+echo -e "${YELLOW}IMPORTANT: Update the following files:${NC}"
+echo "  1. ${NGINX_AVAILABLE} - Set your domain name"
+echo "  2. ${WEB_ROOT}/.env.production - Set your API URL"
+echo ""
+echo "Then reload nginx: sudo systemctl reload nginx"
+echo ""

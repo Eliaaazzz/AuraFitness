@@ -1,46 +1,95 @@
-HELP.md
-.gradle
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
-.vscode/
-
-### Environment & Secrets ###
+# ==========================================
+# ROOT LEVEL
+# ==========================================
+*.log
+*.tar.gz
+*.zip
+.DS_Store
 .env
-*.pem
-aws/.env.deploy
+.env.local
+upload.txt
+node_modules/
 
-### Deployment Packages ###
-*-deploy.tar.gz
-deployment/
+# ==========================================
+# BACKEND (Java/Spring Boot/Gradle)
+# ==========================================
+backend/build/
+backend/bin/
+backend/.gradle/
+backend/out/
+backend/.idea/
+backend/*.iml
+backend/*.iws
+backend/*.ipr
+backend/target/
+backend/.settings/
+backend/.classpath
+backend/.project
+backend/.factorypath
+!backend/gradle/wrapper/gradle-wrapper.jar
+!backend/**/src/main/**/build/
+!backend/**/src/test/**/build/
+
+# ==========================================
+# FRONTEND (React Native/Expo)
+# ==========================================
+frontend/node_modules/
+frontend/.expo/
+frontend/.expo-shared/
+frontend/dist/
+frontend/web-build/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.DS_Store
+frontend/*.jks
+frontend/*.p8
+frontend/*.p12
+frontend/*.key
+frontend/*.mobileprovision
+frontend/*.orig.*
+frontend/web/
+frontend/.env.local
+frontend/.env.production.local
+
+# ==========================================
+# SHARED
+# ==========================================
+shared/node_modules/
+shared/dist/
+
+# ==========================================
+# INFRASTRUCTURE
+# ==========================================
+infrastructure/**/*.pem
+infrastructure/**/*.key
+infrastructure/**/.env
+infrastructure/**/.terraform/
+infrastructure/**/terraform.tfstate
+infrastructure/**/terraform.tfstate.backup
+
+# ==========================================
+# SCRIPTS
+# ==========================================
+scripts/**/*.log
+
+# ==========================================
+# DOCS
+# ==========================================
+docs/**/.DS_Store
+
+# ==========================================
+# IDE & EDITORS
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.claude/
+
+# ==========================================
+# OS
+# ==========================================
+Thumbs.db
+.DS_Store
