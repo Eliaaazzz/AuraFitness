@@ -5,7 +5,10 @@ on:
     branches: [main, CF-17-mvp]
     paths:
       - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradle/**'
   workflow_dispatch:
 
 jobs:
@@ -23,34 +26,48 @@ jobs:
           cache: 'gradle'
       
       - name: Build JAR
-        working-directory: ./backend
         run: |
           chmod +x gradlew
           ./gradlew clean bootJar -x test
-          cd build/libs
-          mv fitness-app-*.jar fitness-app-0.0.1-SNAPSHOT.jar
+          echo "✅ Build completed successfully"
+          echo "📦 Generated JAR files:"
+          ls -lh build/libs/
       
       - name: Deploy to EC2
         run: |
+          echo "🔐 Setting up SSH..."
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
           
-          scp -i ~/.ssh/id_rsa backend/build/libs/fitness-app-0.0.1-SNAPSHOT.jar \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
-
-          scp -i ~/.ssh/id_rsa infrastructure/backend-deploy.sh \
+          echo "📤 Uploading JAR file..."
+          scp -i ~/.ssh/id_rsa build/libs/fitness-app-*.jar \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/fitness-app.jar
+          
+          echo "📤 Uploading deployment script..."
+          scp -i ~/.ssh/id_rsa infrastructure/backend/backend-deploy.sh \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
           
+          echo "🚀 Executing deployment on EC2..."
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
-            'cd /tmp && sudo bash backend-deploy.sh && rm -f backend-deploy.sh fitness-app-0.0.1-SNAPSHOT.jar'
+            'cd /tmp && sudo bash backend-deploy.sh && rm -f backend-deploy.sh fitness-app.jar'
+          
+          echo "✅ Deployment completed"
       
-      - name: Verify
+      - name: Verify Deployment
         run: |
+          echo "⏳ Waiting for application to start..."
           sleep 15
-          curl -f --retry 5 --retry-delay 10 --retry-all-errors \
-            http://${{ secrets.EC2_HOST }}:8080/actuator/health || \
-          curl -f --retry 5 --retry-delay 10 --retry-all-errors \
-            http://${{ secrets.EC2_HOST }}:8080/api/v1/health || \
-          echo "Backend starting..."
+          
+          echo "🔍 Checking backend health..."
+          if curl -f --retry 5 --retry-delay 10 --retry-all-errors \
+            http://${{ secrets.EC2_HOST }}:8080/actuator/health; then
+            echo "✅ Backend is healthy!"
+          elif curl -f --retry 5 --retry-delay 10 --retry-all-errors \
+            http://${{ secrets.EC2_HOST }}:8080/api/v1/health; then
+            echo "✅ Backend is healthy!"
+          else
+            echo "⚠️  Health check failed, but backend may still be starting..."
+            echo "Check logs with: ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'sudo journalctl -u fitness-app -n 50'"
+          fi
