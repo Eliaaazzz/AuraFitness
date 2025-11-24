@@ -1,5 +1,46 @@
 {
+  "name": "camerafirst-fitness-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered fitness and nutrition platform with pose detection and personalized meal planning",
+  "workspaces": [
+    "frontend",
+    "shared"
+  ],
+  "scripts": {
+    "backend:build": "cd backend && ./gradlew clean build",
+    "backend:test": "cd backend && ./gradlew test",
+    "backend:run": "cd backend && ./gradlew bootRun",
+    "backend:jar": "cd backend && ./gradlew clean bootJar",
+    "frontend:install": "cd frontend && npm install",
+    "frontend:start": "cd frontend && npm start",
+    "frontend:android": "cd frontend && npm run android",
+    "frontend:ios": "cd frontend && npm run ios",
+    "frontend:web": "cd frontend && npx expo export --platform web",
+    "dev:backend": "npm run backend:run",
+    "dev:frontend": "npm run frontend:start",
+    "setup": "npm run frontend:install && npm run backend:build",
+    "test": "npm run backend:test && cd frontend && npm test",
+    "clean": "cd backend && ./gradlew clean && cd ../frontend && rm -rf dist node_modules"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/CameraFirst-Fitness.git"
+  },
+  "keywords": [
+    "fitness",
+    "nutrition",
+    "ai",
+    "pose-detection",
+    "react-native",
+    "spring-boot"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "arg": "^5.0.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

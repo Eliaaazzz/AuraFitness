@@ -1,0 +1,191 @@
+spring:
+  application:
+    name: fitness-app
+  profiles:
+    default: dev
+  main:
+    allow-bean-definition-overriding: true
+
+app:
+  youtube:
+    api-key: ${YOUTUBE_API_KEY:}
+    quota:
+      warnings-enabled: true
+  spoonacular:
+    api-key: ${SPOONACULAR_API_KEY:}
+  openai:
+    # OpenAI is OPTIONAL - app works without it
+    # If not provided, AI features (pose analysis, recipe generation, nutrition insights) are disabled
+    enabled: ${OPENAI_ENABLED:false}
+    api-key: ${OPENAI_API_KEY:}
+    model: gpt-4o
+    meal-model: gpt-4o
+    timeout-seconds: 60
+    cost-per-thousand-tokens: 10.0
+    log-usage: true
+  meal-plan:
+    cache-ttl-hours: 24
+  recipe-generation:
+    cache-ttl-hours: 24
+  seed:
+    enabled: ${APP_SEED_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    redis:
+      enabled: true
+
+logging:
+  level:
+    com.fitnessapp.backend: INFO
+    org.springframework.security: DEBUG
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  devtools:
+    restart:
+      enabled: false
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/fitness_mvp}
+    username: ${SPRING_DATASOURCE_USERNAME:fitnessuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:dev_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      # Use none to skip schema validation during development
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+  cache:
+    type: redis
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+      ssl: ${SPRING_REDIS_SSL:true}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 2
+  cache:
+    type: redis
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+management:
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      cloudwatch:
+        enabled: ${CLOUDWATCH_METRICS_ENABLED:false}
+        namespace: FitnessApp
+        step: 1m
+
+server:
+  port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 10
+    connection-timeout: 20000
+
+logging:
+  level:
+    com.fitnessapp.backend: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# AWS-specific environment variable mappings
+# Set these in ECS Task Definition or via AWS Secrets Manager:
+# SPRING_DATASOURCE_URL=jdbc:postgresql://rds-endpoint:5432/fitness_mvp
+# SPRING_DATASOURCE_USERNAME=fitnessuser
+# SPRING_DATASOURCE_PASSWORD=<from-secrets-manager>
+# SPRING_REDIS_HOST=<elasticache-endpoint>
+# SPRING_REDIS_PASSWORD=<from-secrets-manager>
+# SPRING_REDIS_SSL=true
+# OPENAI_API_KEY=<from-secrets-manager>
+# SPOONACULAR_API_KEY=<from-secrets-manager>
+# YOUTUBE_API_KEY=<from-secrets-manager>
+# CORS_ALLOWED_ORIGINS=https://app.yourfitnessdomain.com (optional)
+
+
+
+
+

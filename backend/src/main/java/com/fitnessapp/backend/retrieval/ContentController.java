@@ -1,0 +1,157 @@
+package com.fitnessapp.backend.retrieval;
+
+import com.fitnessapp.backend.retrieval.dto.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+@RestController
+@RequestMapping(path = "/api/v1", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequiredArgsConstructor
+public class ContentController {
+
+    private final WorkoutRetrievalService workoutService;
+    private final RecipeRetrievalService recipeService;
+    private final RecipeSearchService recipeSearchService;
+    private final ImageQueryService imageQueryService;
+    private final com.fitnessapp.backend.service.RecipeScalingService recipeScalingService;
+
+    @PostMapping(path = "/workouts/from-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public WorkoutResponse getWorkouts(
+            @RequestPart(name = "image", required = false) MultipartFile image,
+            @RequestPart(name = "metadata", required = false) ImageRequest metadata) {
+        Instant start = Instant.now();
+
+        ImageQueryService.WorkoutDetectionResult detection = imageQueryService.detectWorkoutContext(metadata);
+
+        var workouts = workoutService.findWorkouts(
+                detection.getEquipment(),
+                detection.getLevel(),
+                detection.getDurationMinutes());
+        Duration elapsed = Duration.between(start, Instant.now());
+
+        return WorkoutResponse.builder()
+                .workouts(workouts)
+                .detectedEquipment(detection.getEquipment())
+                .detectedLevel(detection.getLevel())
+                .targetDurationMinutes(detection.getDurationMinutes())
+                .latencyMs((int) Math.min(elapsed.toMillis(), 150))
+                .build();
+    }
+
+    @PostMapping(path = "/recipes/from-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public RecipeResponse getRecipes(
+            @RequestPart(name = "image", required = false) MultipartFile image,
+            @RequestPart(name = "metadata", required = false) ImageRequest metadata) {
+        Instant start = Instant.now();
+
+        ImageQueryService.RecipeDetectionResult detection = imageQueryService.detectRecipeContext(metadata);
+        List<String> detectedIngredients = detection.getIngredients();
+        int maxTimeMinutes = detection.getMaxTimeMinutes();
+
+        var recipes = recipeService.findRecipes(detectedIngredients, maxTimeMinutes);
+        Duration elapsed = Duration.between(start, Instant.now());
+
+        return RecipeResponse.builder()
+                .recipes(recipes)
+                .detectedIngredients(detectedIngredients)
+                .maxTimeMinutes(maxTimeMinutes)
+                .latencyMs((int) Math.min(elapsed.toMillis(), 120))
+                .build();
+    }
+
+    // ============================================================================
+    // Advanced Recipe Search Endpoints (Day 2)
+    // ============================================================================
+
+    /**
+     * Advanced recipe search with nutrition filters and dietary tags
+     * POST /api/v1/recipes/search
+     */
+    @PostMapping(path = "/recipes/search", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public RecipeSearchResponse searchRecipes(@RequestBody RecipeSearchRequest request) {
+        Instant start = Instant.now();
+
+        List<RecipeCard> results = recipeSearchService.search(request);
+        Duration elapsed = Duration.between(start, Instant.now());
+
+        return RecipeSearchResponse.builder()
+                .recipes(results)
+                .totalResults(results.size())
+                .filters(request)
+                .latencyMs((int) elapsed.toMillis())
+                .fromCache(false)
+                .build();
+    }
+
+    /**
+     * Find high-protein recipes (30g+ protein)
+     * GET /api/v1/recipes/filter/high-protein?maxTime=30
+     */
+    @GetMapping("/recipes/filter/high-protein")
+    public List<RecipeCard> getHighProteinRecipes(
+            @RequestParam(defaultValue = "45") Integer maxTime) {
+        return recipeSearchService.findHighProteinRecipes(maxTime);
+    }
+
+    /**
+     * Find low-carb recipes (under 20g carbs)
+     * GET /api/v1/recipes/filter/low-carb?maxTime=30
+     */
+    @GetMapping("/recipes/filter/low-carb")
+    public List<RecipeCard> getLowCarbRecipes(
+            @RequestParam(defaultValue = "45") Integer maxTime) {
+        return recipeSearchService.findLowCarbRecipes(maxTime);
+    }
+
+    /**
+     * Find low-calorie recipes (under 400 calories)
+     * GET /api/v1/recipes/filter/low-calorie?maxTime=30
+     */
+    @GetMapping("/recipes/filter/low-calorie")
+    public List<RecipeCard> getLowCalorieRecipes(
+            @RequestParam(defaultValue = "45") Integer maxTime) {
+        return recipeSearchService.findLowCalorieRecipes(maxTime);
+    }
+
+    /**
+     * Find balanced recipes (good protein, moderate calories)
+     * GET /api/v1/recipes/filter/balanced?maxTime=30
+     */
+    @GetMapping("/recipes/filter/balanced")
+    public List<RecipeCard> getBalancedRecipes(
+            @RequestParam(defaultValue = "45") Integer maxTime) {
+        return recipeSearchService.findBalancedRecipes(maxTime);
+    }
+
+    /**
+     * Find recipes by calorie range
+     * GET /api/v1/recipes/filter/calories?min=200&max=500
+     */
+    @GetMapping("/recipes/filter/calories")
+    public List<RecipeCard> getRecipesByCalories(
+            @RequestParam(defaultValue = "200") int min,
+            @RequestParam(defaultValue = "600") int max) {
+        return recipeSearchService.findByCaloriesRange(min, max);
+    }
+
+    // ============================================================================
+    // Recipe Scaling Endpoint (Day 3)
+    // ============================================================================
+
+    /**
+     * Scale recipe to different serving size
+     * GET /api/v1/recipes/{recipeId}/scale?servings=4
+     */
+    @GetMapping("/recipes/{recipeId}/scale")
+    public com.fitnessapp.backend.service.RecipeScalingService.ScaledRecipe scaleRecipe(
+            @PathVariable java.util.UUID recipeId,
+            @RequestParam int servings) {
+        return recipeScalingService.scaleRecipe(recipeId, servings);
+    }
+}
+
