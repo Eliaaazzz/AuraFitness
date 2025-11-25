@@ -2,8 +2,20 @@
 
 # Frontend Deployment Script for AWS EC2
 # This script deploys the React Native Web application
+# Usage: ./frontend-deploy.sh [--skip-nginx]
 
 set -e
+
+# Parse arguments
+SKIP_NGINX=false
+for arg in "$@"; do
+    case $arg in
+        --skip-nginx)
+            SKIP_NGINX=true
+            shift
+            ;;
+    esac
+done
 
 echo "========================================="
 echo "Fitness App Frontend Deployment"
@@ -100,20 +112,24 @@ chown -R ${NGINX_USER}:${NGINX_USER} ${WEB_ROOT}
 find ${WEB_ROOT} -type f -exec chmod 644 {} \;
 find ${WEB_ROOT} -type d -exec chmod 755 {} \;
 
-echo -e "${GREEN}Step 8: Installing nginx configuration...${NC}"
-if [ -f "./nginx-frontend.conf" ]; then
-    cp ./nginx-frontend.conf ${NGINX_CONF}
-    echo "Nginx config copied to ${NGINX_CONF}"
+if [ "$SKIP_NGINX" = true ]; then
+    echo -e "${YELLOW}Step 8: Skipping nginx configuration (using existing config)${NC}"
 else
-    echo -e "${YELLOW}Warning: nginx-frontend.conf not found in current directory${NC}"
-    echo "You'll need to configure nginx manually"
+    echo -e "${GREEN}Step 8: Installing nginx configuration...${NC}"
+    if [ -f "./nginx-frontend.conf" ]; then
+        cp ./nginx-frontend.conf ${NGINX_CONF}
+        echo "Nginx config copied to ${NGINX_CONF}"
+    else
+        echo -e "${YELLOW}Warning: nginx-frontend.conf not found in current directory${NC}"
+        echo "You'll need to configure nginx manually"
+    fi
+
+    echo -e "${GREEN}Step 9: Testing nginx configuration...${NC}"
+    nginx -t
+
+    echo -e "${GREEN}Step 10: Reloading nginx...${NC}"
+    systemctl reload nginx
 fi
-
-echo -e "${GREEN}Step 9: Testing nginx configuration...${NC}"
-nginx -t
-
-echo -e "${GREEN}Step 10: Reloading nginx...${NC}"
-systemctl reload nginx
 
 echo ""
 echo "========================================="
@@ -121,7 +137,11 @@ echo -e "${GREEN}Frontend deployment completed!${NC}"
 echo "========================================="
 echo ""
 echo "Frontend location: ${WEB_ROOT}"
-echo "Nginx config: ${NGINX_CONF}"
+if [ "$SKIP_NGINX" = true ]; then
+    echo "Nginx config: Using existing configuration (not modified)"
+else
+    echo "Nginx config: ${NGINX_CONF}"
+fi
 echo ""
 echo "Useful commands:"
 echo "  - Check nginx status:  sudo systemctl status nginx"
@@ -129,9 +149,11 @@ echo "  - View nginx logs:     sudo tail -f /var/log/nginx/access.log"
 echo "  - Reload nginx:        sudo systemctl reload nginx"
 echo "  - Test nginx config:   sudo nginx -t"
 echo ""
-echo -e "${YELLOW}IMPORTANT: Update the following files:${NC}"
-echo "  1. ${NGINX_CONF} - Set your domain name"
-echo "  2. ${WEB_ROOT}/.env.production - Set your API URL"
-echo ""
-echo "Then reload nginx: sudo systemctl reload nginx"
+if [ "$SKIP_NGINX" = false ]; then
+    echo -e "${YELLOW}IMPORTANT: Update the following files:${NC}"
+    echo "  1. ${NGINX_CONF} - Set your domain name"
+    echo "  2. ${WEB_ROOT}/.env.production - Set your API URL"
+    echo ""
+    echo "Then reload nginx: sudo systemctl reload nginx"
+fi
 echo ""
