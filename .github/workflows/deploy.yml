@@ -59,12 +59,30 @@ jobs:
       # ==========================================
       
       - name: Configure SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
+          set -euo pipefail
           echo "🔐 Setting up SSH..."
+
+          if [ -z "${EC2_HOST:-}" ]; then
+            echo "EC2_HOST secret is missing" >&2
+            exit 1
+          fi
+          if [ -z "${EC2_SSH_KEY:-}" ]; then
+            echo "EC2_SSH_KEY secret is missing" >&2
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+          if ! ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "⚠️  ssh-keyscan failed for $EC2_HOST; continuing with StrictHostKeyChecking=no"
+            printf "Host *\n  StrictHostKeyChecking no\n" >> ~/.ssh/config
+          fi
       
       - name: Deploy Backend
         run: |

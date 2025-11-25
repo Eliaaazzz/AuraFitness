@@ -40,12 +40,34 @@ jobs:
           API_BASE_URL: http://${{ secrets.EC2_HOST }}:8080
       
       - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_USER: ${{ secrets.EC2_USER }}
         run: |
+          set -euo pipefail
           echo "🔐 Setting up SSH..."
+          
+          if [ -z "${EC2_HOST:-}" ]; then
+            echo "EC2_HOST secret is missing" >&2
+            exit 1
+          fi
+          if [ -z "${EC2_SSH_KEY:-}" ]; then
+            echo "EC2_SSH_KEY secret is missing" >&2
+            exit 1
+          fi
+          if [ -z "${EC2_USER:-}" ]; then
+            echo "EC2_USER secret is missing" >&2
+            exit 1
+          fi
+          
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          if ! ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "⚠️  ssh-keyscan failed for $EC2_HOST; continuing with StrictHostKeyChecking=no"
+            printf "Host *\n  StrictHostKeyChecking no\n" >> ~/.ssh/config
+          fi
           
           echo "📦 Creating deployment package..."
           cd frontend/dist
@@ -54,17 +76,17 @@ jobs:
           
           echo "📤 Uploading frontend package..."
           scp -i ~/.ssh/id_rsa frontend/frontend.tar.gz \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+            "$EC2_USER@$EC2_HOST":/tmp/
           
           echo "📤 Uploading deployment script..."
           scp -i ~/.ssh/id_rsa infrastructure/frontend-deploy.sh \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+            "$EC2_USER@$EC2_HOST":/tmp/
 
           scp -i ~/.ssh/id_rsa infrastructure/nginx-frontend.conf \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+            "$EC2_USER@$EC2_HOST":/tmp/
           
           echo "🚀 Executing deployment on EC2..."
-          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" << 'EOF'
             cd /tmp
             mkdir -p frontend-tmp/dist
             tar -xzf frontend.tar.gz -C frontend-tmp/dist/
