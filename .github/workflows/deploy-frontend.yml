@@ -64,6 +64,14 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          if ! grep -q "BEGIN [A-Z ]*PRIVATE KEY" ~/.ssh/id_rsa; then
+            echo "EC2_SSH_KEY appears to be malformed (missing BEGIN/END lines). Re-paste the key with newlines." >&2
+            exit 1
+          fi
+          if ! ssh-keygen -yf ~/.ssh/id_rsa >/dev/null 2>&1; then
+            echo "EC2_SSH_KEY failed to parse (libcrypto error). Re-paste the key with proper line breaks and a trailing newline." >&2
+            exit 1
+          fi
           if ! ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
             echo "⚠️  ssh-keyscan failed for $EC2_HOST; continuing with StrictHostKeyChecking=no"
             printf "Host *\n  StrictHostKeyChecking no\n" >> ~/.ssh/config
