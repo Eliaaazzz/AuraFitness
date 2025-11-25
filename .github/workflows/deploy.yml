@@ -83,43 +83,64 @@ jobs:
             echo "⚠️  ssh-keyscan failed for $EC2_HOST; continuing with StrictHostKeyChecking=no"
             printf "Host *\n  StrictHostKeyChecking no\n" >> ~/.ssh/config
           fi
+
+      - name: Check SSH connectivity
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          set -euo pipefail
+          echo "⏳ Checking SSH connectivity to $EC2_HOST:22 ..."
+          if ! nc -zv -w 5 "$EC2_HOST" 22; then
+            echo "❌ Cannot reach $EC2_HOST on port 22. Verify the instance is up and SG/firewall allows GitHub Actions." >&2
+            exit 1
+          fi
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" "echo 'SSH OK'"
       
       - name: Deploy Backend
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
         run: |
+          set -euo pipefail
           echo "📤 Uploading backend JAR..."
-          scp -i ~/.ssh/id_rsa backend/build/libs/fitness-app-*.jar \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/fitness-app.jar
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no backend/build/libs/fitness-app-*.jar \
+            "$EC2_USER@$EC2_HOST":/tmp/fitness-app.jar
 
           echo "📤 Uploading backend deployment script..."
-          scp -i ~/.ssh/id_rsa infrastructure/backend-deploy.sh \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/backend-deploy.sh \
+            "$EC2_USER@$EC2_HOST":/tmp/
 
           echo "🚀 Deploying backend..."
-          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+          ssh -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" \
             'cd /tmp && sudo bash backend-deploy.sh && rm -f backend-deploy.sh fitness-app.jar'
           
           echo "✅ Backend deployed"
       
       - name: Deploy Frontend
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
         run: |
+          set -euo pipefail
           echo "📦 Creating frontend package..."
           cd frontend/dist
           tar -czf ../frontend.tar.gz .
           cd ../..
 
           echo "📤 Uploading frontend package..."
-          scp -i ~/.ssh/id_rsa frontend/frontend.tar.gz \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no frontend/frontend.tar.gz \
+            "$EC2_USER@$EC2_HOST":/tmp/
 
           echo "📤 Uploading frontend deployment scripts..."
-          scp -i ~/.ssh/id_rsa infrastructure/frontend-deploy.sh \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/frontend-deploy.sh \
+            "$EC2_USER@$EC2_HOST":/tmp/
 
-          scp -i ~/.ssh/id_rsa infrastructure/nginx-frontend.conf \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/nginx-frontend.conf \
+            "$EC2_USER@$EC2_HOST":/tmp/
           
           echo "🚀 Deploying frontend..."
-          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" << 'EOF'
             cd /tmp
             mkdir -p frontend-tmp/dist
             tar -xzf frontend.tar.gz -C frontend-tmp/dist/
