@@ -11,8 +11,7 @@ echo "========================================="
 
 # Configuration
 APP_NAME="fitness-app"
-APP_VERSION="0.0.1-SNAPSHOT"
-JAR_FILE="${APP_NAME}-${APP_VERSION}.jar"
+JAR_FILE="${APP_NAME}.jar"
 APP_DIR="/opt/fitness-app"
 SERVICE_USER="fitness"
 LOGS_DIR="${APP_DIR}/logs"

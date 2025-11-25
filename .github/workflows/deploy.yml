@@ -103,8 +103,15 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
         run: |
           set -euo pipefail
+          JAR_SRC=$(ls backend/build/libs/fitness-app-*.jar | head -n 1)
+          if [ -z "${JAR_SRC:-}" ] || [ ! -f "$JAR_SRC" ]; then
+            echo "Could not find built JAR in backend/build/libs" >&2
+            exit 1
+          fi
+          cp "$JAR_SRC" backend/build/libs/fitness-app.jar
+
           echo "📤 Uploading backend JAR..."
-          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no backend/build/libs/fitness-app-*.jar \
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no backend/build/libs/fitness-app.jar \
             "$EC2_USER@$EC2_HOST":/tmp/fitness-app.jar
 
           echo "📤 Uploading backend deployment script..."
