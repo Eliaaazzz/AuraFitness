@@ -98,9 +98,8 @@ jobs:
           scp -i ~/.ssh/id_rsa infrastructure/frontend-deploy.sh \
             "$EC2_USER@$EC2_HOST":/tmp/
 
-          # Skip nginx config upload - using manually configured aurafitness.conf
-          # scp -i ~/.ssh/id_rsa infrastructure/nginx-frontend.conf \
-          #   "$EC2_USER@$EC2_HOST":/tmp/
+          scp -i ~/.ssh/id_rsa infrastructure/aurafitness-nginx-template.conf \
+            "$EC2_USER@$EC2_HOST":/tmp/aurafitness.conf
           
           echo "🚀 Executing deployment on EC2..."
           ssh -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" << 'EOF'
@@ -108,8 +107,9 @@ jobs:
             mkdir -p frontend-tmp/dist
             tar -xzf frontend.tar.gz -C frontend-tmp/dist/
             mv frontend-deploy.sh frontend-tmp/
+            mv aurafitness.conf frontend-tmp/
             cd frontend-tmp
-            sudo bash frontend-deploy.sh --skip-nginx
+            sudo bash frontend-deploy.sh
             cd /tmp
             rm -rf frontend-tmp frontend.tar.gz
           EOF

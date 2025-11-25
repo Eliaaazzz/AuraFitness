@@ -22,7 +22,7 @@ echo "Fitness App Frontend Deployment"
 echo "========================================="
 
 # Configuration
-APP_NAME="fitness-app"
+APP_NAME="aurafitness"
 WEB_ROOT="/var/www/${APP_NAME}"
 NGINX_CONF_DIR="/etc/nginx/conf.d"
 NGINX_CONF="${NGINX_CONF_DIR}/${APP_NAME}.conf"
@@ -116,11 +116,11 @@ if [ "$SKIP_NGINX" = true ]; then
     echo -e "${YELLOW}Step 8: Skipping nginx configuration (using existing config)${NC}"
 else
     echo -e "${GREEN}Step 8: Installing nginx configuration...${NC}"
-    if [ -f "./nginx-frontend.conf" ]; then
-        cp ./nginx-frontend.conf ${NGINX_CONF}
+    if [ -f "./aurafitness.conf" ]; then
+        cp ./aurafitness.conf ${NGINX_CONF}
         echo "Nginx config copied to ${NGINX_CONF}"
     else
-        echo -e "${YELLOW}Warning: nginx-frontend.conf not found in current directory${NC}"
+        echo -e "${YELLOW}Warning: aurafitness.conf not found in current directory${NC}"
         echo "You'll need to configure nginx manually"
     fi
 

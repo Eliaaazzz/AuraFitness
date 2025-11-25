@@ -153,8 +153,8 @@ jobs:
           scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/frontend-deploy.sh \
             "$EC2_USER@$EC2_HOST":/tmp/
 
-          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/nginx-frontend.conf \
-            "$EC2_USER@$EC2_HOST":/tmp/
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/aurafitness-nginx-template.conf \
+            "$EC2_USER@$EC2_HOST":/tmp/aurafitness.conf
           
           echo "🚀 Deploying frontend..."
           ssh -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" << 'EOF'
@@ -162,7 +162,7 @@ jobs:
             mkdir -p frontend-tmp/dist
             tar -xzf frontend.tar.gz -C frontend-tmp/dist/
             mv frontend-deploy.sh frontend-tmp/
-            mv nginx-frontend.conf frontend-tmp/
+            mv aurafitness.conf frontend-tmp/
             cd frontend-tmp
             sudo bash frontend-deploy.sh
             cd /tmp
