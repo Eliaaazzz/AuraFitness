@@ -62,6 +62,7 @@ jobs:
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_SSH_KEY_B64: ${{ secrets.EC2_SSH_KEY_B64 }}
         run: |
           set -euo pipefail
           echo "🔐 Setting up SSH..."
@@ -70,13 +71,21 @@ jobs:
             echo "EC2_HOST secret is missing" >&2
             exit 1
           fi
-          if [ -z "${EC2_SSH_KEY:-}" ]; then
-            echo "EC2_SSH_KEY secret is missing" >&2
+          if [ -z "${EC2_SSH_KEY:-}" ] && [ -z "${EC2_SSH_KEY_B64:-}" ]; then
+            echo "EC2_SSH_KEY (or EC2_SSH_KEY_B64) secret is missing" >&2
             exit 1
           fi
 
           mkdir -p ~/.ssh
-          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+          if [ -n "${EC2_SSH_KEY_B64:-}" ]; then
+            # Prefer base64-encoded secret to avoid newline corruption
+            if ! printf '%s' "$EC2_SSH_KEY_B64" | base64 -d > ~/.ssh/id_rsa 2>/dev/null; then
+              echo "EC2_SSH_KEY_B64 failed to decode; ensure it is a base64-encoded private key." >&2
+              exit 1
+            fi
+          else
+            printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+          fi
           chmod 600 ~/.ssh/id_rsa
           if ! grep -q "BEGIN [A-Z ]*PRIVATE KEY" ~/.ssh/id_rsa; then
             echo "EC2_SSH_KEY appears to be malformed (missing BEGIN/END lines). Re-paste the key with newlines." >&2
