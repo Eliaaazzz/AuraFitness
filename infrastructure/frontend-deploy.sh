@@ -12,8 +12,8 @@ echo "========================================="
 # Configuration
 APP_NAME="fitness-app"
 WEB_ROOT="/var/www/${APP_NAME}"
-NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}"
-NGINX_ENABLED="/etc/nginx/sites-enabled/${APP_NAME}"
+NGINX_CONF_DIR="/etc/nginx/conf.d"
+NGINX_CONF="${NGINX_CONF_DIR}/${APP_NAME}.conf"
 SOURCE_DIR="./dist"
 BACKUP_DIR="/var/backups/${APP_NAME}"
 
@@ -34,8 +34,18 @@ echo -e "${GREEN}Step 1: Checking prerequisites...${NC}"
 # Check if nginx is installed
 if ! command -v nginx &> /dev/null; then
     echo -e "${YELLOW}Nginx not found. Installing...${NC}"
-    apt-get update
-    apt-get install -y nginx
+    # Detect package manager (Amazon Linux uses dnf/yum)
+    if command -v dnf &> /dev/null; then
+        dnf install -y nginx
+    elif command -v yum &> /dev/null; then
+        yum install -y nginx
+    elif command -v apt-get &> /dev/null; then
+        apt-get update
+        apt-get install -y nginx
+    else
+        echo -e "${RED}Error: No supported package manager found${NC}"
+        exit 1
+    fi
 fi
 
 # Check if source directory exists
@@ -77,20 +87,23 @@ EOF
 echo -e "${YELLOW}Update ${WEB_ROOT}/.env.production with your API URL${NC}"
 
 echo -e "${GREEN}Step 7: Setting permissions...${NC}"
-chown -R www-data:www-data ${WEB_ROOT}
+# Detect nginx user (Amazon Linux uses 'nginx', Debian/Ubuntu uses 'www-data')
+if id "nginx" &>/dev/null; then
+    NGINX_USER="nginx"
+elif id "www-data" &>/dev/null; then
+    NGINX_USER="www-data"
+else
+    NGINX_USER="root"
+    echo -e "${YELLOW}Warning: Using root user (nginx/www-data user not found)${NC}"
+fi
+chown -R ${NGINX_USER}:${NGINX_USER} ${WEB_ROOT}
 find ${WEB_ROOT} -type f -exec chmod 644 {} \;
 find ${WEB_ROOT} -type d -exec chmod 755 {} \;
 
 echo -e "${GREEN}Step 8: Installing nginx configuration...${NC}"
 if [ -f "./nginx-frontend.conf" ]; then
-    cp ./nginx-frontend.conf ${NGINX_AVAILABLE}
-    echo "Nginx config copied to ${NGINX_AVAILABLE}"
-
-    # Create symlink if it doesn't exist
-    if [ ! -L "${NGINX_ENABLED}" ]; then
-        ln -s ${NGINX_AVAILABLE} ${NGINX_ENABLED}
-        echo "Created symlink: ${NGINX_ENABLED}"
-    fi
+    cp ./nginx-frontend.conf ${NGINX_CONF}
+    echo "Nginx config copied to ${NGINX_CONF}"
 else
     echo -e "${YELLOW}Warning: nginx-frontend.conf not found in current directory${NC}"
     echo "You'll need to configure nginx manually"
@@ -108,16 +121,16 @@ echo -e "${GREEN}Frontend deployment completed!${NC}"
 echo "========================================="
 echo ""
 echo "Frontend location: ${WEB_ROOT}"
-echo "Nginx config: ${NGINX_AVAILABLE}"
+echo "Nginx config: ${NGINX_CONF}"
 echo ""
 echo "Useful commands:"
 echo "  - Check nginx status:  sudo systemctl status nginx"
-echo "  - View nginx logs:     sudo tail -f /var/log/nginx/fitness-app-access.log"
+echo "  - View nginx logs:     sudo tail -f /var/log/nginx/access.log"
 echo "  - Reload nginx:        sudo systemctl reload nginx"
 echo "  - Test nginx config:   sudo nginx -t"
 echo ""
 echo -e "${YELLOW}IMPORTANT: Update the following files:${NC}"
-echo "  1. ${NGINX_AVAILABLE} - Set your domain name"
+echo "  1. ${NGINX_CONF} - Set your domain name"
 echo "  2. ${WEB_ROOT}/.env.production - Set your API URL"
 echo ""
 echo "Then reload nginx: sudo systemctl reload nginx"
