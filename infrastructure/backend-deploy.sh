@@ -1,21 +1,21 @@
 #!/bin/bash
 
-# Backend Deployment Script for AWS EC2
-# This script deploys the Spring Boot application
+# Backend Deployment Script for AWS EC2 (Docker-based)
+# This script deploys the Spring Boot application using Docker containers
 
 set -e
 
 echo "========================================="
-echo "Fitness App Backend Deployment"
+echo "Fitness App Docker Deployment"
 echo "========================================="
 
 # Configuration
-APP_NAME="fitness-app"
-JAR_FILE="${APP_NAME}.jar"
+DOCKER_IMAGE="${DOCKER_IMAGE:-fitnessdev/fitness-backend:latest}"
 APP_DIR="/opt/fitness-app"
-SERVICE_USER="fitness"
-LOGS_DIR="${APP_DIR}/logs"
-BACKUP_DIR="${APP_DIR}/backups"
+COMPOSE_FILE="/opt/fitness-app/docker-compose.yml"
+ENV_FILE="/opt/fitness-app/.env"
+POSTGRES_DATA_DIR="/opt/fitness-app/data/postgres"
+REDIS_DATA_DIR="/opt/fitness-app/data/redis"
 
 # Colors for output
 RED='\033[0;31m'
@@ -29,148 +29,169 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-echo -e "${GREEN}Step 1: Creating application directories...${NC}"
-mkdir -p ${APP_DIR}
-mkdir -p ${LOGS_DIR}
-mkdir -p ${BACKUP_DIR}
-
-echo -e "${GREEN}Step 2: Creating service user...${NC}"
-if ! id -u ${SERVICE_USER} > /dev/null 2>&1; then
-    useradd -r -s /bin/false ${SERVICE_USER}
-    echo "Created user: ${SERVICE_USER}"
-else
-    echo "User ${SERVICE_USER} already exists"
-fi
-
-echo -e "${GREEN}Step 3: Backing up existing JAR...${NC}"
-if [ -f "${APP_DIR}/${JAR_FILE}" ]; then
-    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    cp "${APP_DIR}/${JAR_FILE}" "${BACKUP_DIR}/${JAR_FILE}.${TIMESTAMP}"
-    echo "Backup created: ${BACKUP_DIR}/${JAR_FILE}.${TIMESTAMP}"
-fi
-
-echo -e "${GREEN}Step 4: Copying new JAR file...${NC}"
-if [ -f "./${JAR_FILE}" ]; then
-    cp "./${JAR_FILE}" "${APP_DIR}/"
-    echo "JAR copied to ${APP_DIR}"
-else
-    echo -e "${RED}Error: JAR file not found: ./${JAR_FILE}${NC}"
-    echo "Please ensure the JAR file is in the current directory"
+echo -e "${GREEN}Step 1: Checking prerequisites...${NC}"
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}Docker is not installed. Please install Docker first.${NC}"
+    echo "Install with: curl -fsSL https://get.docker.com | sh"
     exit 1
 fi
 
-echo -e "${GREEN}Step 5: Setting permissions...${NC}"
-chown -R ${SERVICE_USER}:${SERVICE_USER} ${APP_DIR}
-chmod 755 ${APP_DIR}
-chmod 644 ${APP_DIR}/${JAR_FILE}
-
-echo -e "${GREEN}Step 6: Creating environment file...${NC}"
-if [ ! -f "${APP_DIR}/.env" ]; then
-    cat > ${APP_DIR}/.env <<EOF
-# Spring Boot Application Configuration
-SPRING_PROFILES_ACTIVE=prod
-
-# Database Configuration
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=fitness_app
-POSTGRES_USER=fitness_user
-POSTGRES_PASSWORD=CHANGE_ME
-
-# Redis Configuration
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=CHANGE_ME
-
-# JWT Configuration
-JWT_SECRET=CHANGE_ME_TO_LONG_RANDOM_STRING
-JWT_EXPIRATION=86400000
-
-# OpenAI Configuration
-OPENAI_API_KEY=CHANGE_ME
-
-# YouTube API Configuration
-YOUTUBE_API_KEY=CHANGE_ME
-
-# Allowed Origins (comma-separated)
-ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
-
-# Application Port
-SERVER_PORT=8080
-
-# File Upload
-MAX_FILE_SIZE=10MB
-MAX_REQUEST_SIZE=10MB
-EOF
-    echo -e "${YELLOW}Created .env file. Please edit ${APP_DIR}/.env with your configuration${NC}"
-    chown ${SERVICE_USER}:${SERVICE_USER} ${APP_DIR}/.env
-    chmod 600 ${APP_DIR}/.env
-else
-    echo ".env file already exists, skipping creation"
+if ! command -v docker-compose &> /dev/null; then
+    echo -e "${YELLOW}docker-compose not found. Installing...${NC}"
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
 fi
 
-echo -e "${GREEN}Step 7: Installing systemd service...${NC}"
-cat > /etc/systemd/system/${APP_NAME}.service <<EOF
-[Unit]
-Description=Fitness App Spring Boot Application
-After=network.target postgresql.service redis.service
+echo "Docker version: $(docker --version)"
+echo "Docker Compose version: $(docker-compose --version)"
 
-[Service]
-Type=simple
-User=${SERVICE_USER}
-Group=${SERVICE_USER}
-WorkingDirectory=${APP_DIR}
+echo -e "${GREEN}Step 2: Migrating from systemd (if needed)...${NC}"
+if systemctl is-active --quiet fitness-app; then
+    echo "Stopping old systemd service..."
+    systemctl stop fitness-app
+    systemctl disable fitness-app
+    echo -e "${YELLOW}Old systemd service stopped and disabled${NC}"
+fi
 
-# Load environment variables
-EnvironmentFile=${APP_DIR}/.env
+echo -e "${GREEN}Step 3: Creating application directories...${NC}"
+mkdir -p ${APP_DIR}
+mkdir -p ${POSTGRES_DATA_DIR}
+mkdir -p ${REDIS_DATA_DIR}
 
-# Java options
-Environment="JAVA_OPTS=-Xms512m -Xmx2048m -XX:+UseG1GC"
+echo -e "${GREEN}Step 4: Setting up environment file...${NC}"
+if [ ! -f "${ENV_FILE}" ]; then
+    cat > ${ENV_FILE} <<'EOF'
+# Docker Compose Environment Variables
+# IMPORTANT: Update these values for production!
 
-# Run the application
-ExecStart=/usr/bin/java \$JAVA_OPTS -jar ${APP_DIR}/${JAR_FILE} \\
-    --spring.profiles.active=\${SPRING_PROFILES_ACTIVE} \\
-    --server.port=\${SERVER_PORT}
+# Spring Profile
+SPRING_PROFILES_ACTIVE=prod
 
-# Logging
-StandardOutput=append:${LOGS_DIR}/application.log
-StandardError=append:${LOGS_DIR}/error.log
+# Database Password (CHANGE THIS!)
+POSTGRES_PASSWORD=CHANGE_ME_SECURE_PASSWORD
 
-# Restart policy
-Restart=always
-RestartSec=10
+# Redis Password (Optional, leave empty for no password)
+REDIS_PASSWORD=
 
-# Security
-NoNewPrivileges=true
-PrivateTmp=true
+# API Keys (Optional - app works without these)
+OPENAI_ENABLED=false
+OPENAI_API_KEY=
+YOUTUBE_API_KEY=
+SPOONACULAR_API_KEY=
 
-[Install]
-WantedBy=multi-user.target
+# Application Settings
+APP_SEED_ENABLED=true
+EOF
+    echo -e "${YELLOW}Created .env file. IMPORTANT: Edit ${ENV_FILE} with your configuration!${NC}"
+    chmod 600 ${ENV_FILE}
+else
+    echo ".env file already exists, keeping current configuration"
+fi
+
+echo -e "${GREEN}Step 5: Creating docker-compose.yml...${NC}"
+cat > ${COMPOSE_FILE} <<'EOF'
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fitness-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fitness_mvp
+      POSTGRES_USER: fitnessuser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - /opt/fitness-app/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitnessuser -d fitness_mvp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: fitness-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    ports:
+      - "6379:6379"
+    volumes:
+      - /opt/fitness-app/data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  app:
+    image: ${DOCKER_IMAGE}
+    container_name: fitness-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fitness_mvp
+      SPRING_DATASOURCE_USERNAME: fitnessuser
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SPRING_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SPRING_REDIS_SSL_ENABLED: false
+      OPENAI_ENABLED: ${OPENAI_ENABLED:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      SPOONACULAR_API_KEY: ${SPOONACULAR_API_KEY:-}
+      SERVER_PORT: 8080
+      APP_SEED_ENABLED: ${APP_SEED_ENABLED:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 EOF
 
-echo -e "${GREEN}Step 8: Reloading systemd...${NC}"
-systemctl daemon-reload
+echo -e "${GREEN}Step 6: Pulling latest Docker image...${NC}"
+docker pull ${DOCKER_IMAGE} || echo -e "${YELLOW}Could not pull image. Will use local image if available.${NC}"
 
-echo -e "${GREEN}Step 9: Enabling service...${NC}"
-systemctl enable ${APP_NAME}.service
+echo -e "${GREEN}Step 7: Stopping old containers...${NC}"
+cd ${APP_DIR}
+docker-compose down || true
 
-echo -e "${GREEN}Step 10: Restarting service...${NC}"
-systemctl restart ${APP_NAME}.service
+echo -e "${GREEN}Step 8: Starting containers...${NC}"
+docker-compose --env-file ${ENV_FILE} up -d
+
+echo -e "${GREEN}Step 9: Waiting for application to be healthy...${NC}"
+sleep 10
 
 echo ""
 echo "========================================="
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo "========================================="
 echo ""
-echo "Service status:"
-systemctl status ${APP_NAME}.service --no-pager
+echo "Container status:"
+docker-compose ps
+echo ""
+echo "Application health:"
+docker-compose exec -T app wget -qO- http://localhost:8080/actuator/health || echo "Still starting up..."
 echo ""
 echo "Useful commands:"
-echo "  - Check status:  sudo systemctl status ${APP_NAME}"
-echo "  - View logs:     sudo journalctl -u ${APP_NAME} -f"
-echo "  - Restart:       sudo systemctl restart ${APP_NAME}"
-echo "  - Stop:          sudo systemctl stop ${APP_NAME}"
-echo "  - View app logs: sudo tail -f ${LOGS_DIR}/application.log"
+echo "  - View logs:         cd ${APP_DIR} && docker-compose logs -f app"
+echo "  - Check status:      cd ${APP_DIR} && docker-compose ps"
+echo "  - Restart app:       cd ${APP_DIR} && docker-compose restart app"
+echo "  - Stop all:          cd ${APP_DIR} && docker-compose down"
+echo "  - View DB logs:      cd ${APP_DIR} && docker-compose logs -f postgres"
+echo "  - Access DB shell:   cd ${APP_DIR} && docker-compose exec postgres psql -U fitnessuser -d fitness_mvp"
 echo ""
-echo -e "${YELLOW}IMPORTANT: Edit ${APP_DIR}/.env with your configuration!${NC}"
+echo -e "${YELLOW}IMPORTANT: Edit ${ENV_FILE} with your secure passwords and API keys!${NC}"
 echo ""
