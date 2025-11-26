@@ -117,8 +117,6 @@ spring:
       host: ${SPRING_REDIS_HOST}
       port: ${SPRING_REDIS_PORT:6379}
       password: ${SPRING_REDIS_PASSWORD:}
-      ssl:
-        enabled: ${SPRING_REDIS_SSL_ENABLED:true}
       timeout: 2000ms
       lettuce:
         pool:

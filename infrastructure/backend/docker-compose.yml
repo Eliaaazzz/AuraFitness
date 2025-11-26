@@ -61,7 +61,6 @@ services:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      SPRING_REDIS_SSL_ENABLED: false
 
       # API Keys (Optional)
       OPENAI_ENABLED: ${OPENAI_ENABLED:-false}
