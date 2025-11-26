@@ -1,3 +1,5 @@
+import org.springframework.boot.gradle.tasks.bundling.BootJar
+
 plugins {
     java
     id("org.springframework.boot") version "3.3.5"
@@ -67,6 +69,10 @@ tasks.jacocoTestReport {
         xml.required.set(true)
         html.required.set(true)
     }
+}
+
+tasks.named<BootJar>("bootJar") {
+    archiveFileName.set("fitness-app.jar")
 }
 
 flyway {

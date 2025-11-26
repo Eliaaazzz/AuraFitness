@@ -1,9 +1,13 @@
-name: Deploy Full Stack
+name: Deploy Full Stack (Legacy JAR - Disabled)
+
+# ⚠️ This workflow is disabled in favor of Docker-based deployment
+# Use deploy-backend.yml instead for Docker deployment
+# To re-enable, uncomment the 'push' trigger below
 
 on:
-  push:
-    branches: [main, CF-17-mvp]
-  workflow_dispatch:
+  # push:
+  #   branches: [main, CF-17-mvp]
+  workflow_dispatch:  # Keep manual trigger available
 
 jobs:
   deploy:
@@ -26,10 +30,11 @@ jobs:
       - name: Build Backend JAR
         working-directory: ./backend
         run: |
+          echo "🏗️  Building backend..."
           chmod +x gradlew
           ./gradlew clean bootJar -x test
-          cd build/libs
-          mv fitness-app-*.jar fitness-app-0.0.1-SNAPSHOT.jar
+          echo "✅ Backend build completed"
+          ls -lh build/libs/
       
       # ==========================================
       # FRONTEND BUILD
@@ -40,13 +45,16 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: 'frontend/package-lock.json'
       
       - name: Build Frontend
         working-directory: frontend
         run: |
+          echo "🏗️  Building frontend..."
           npm ci
           npx expo export --platform web
+          echo "✅ Frontend build completed"
+          ls -la dist/
         env:
           API_BASE_URL: http://${{ secrets.EC2_HOST }}:8080
       
@@ -55,49 +63,117 @@ jobs:
       # ==========================================
       
       - name: Configure SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_SSH_KEY_B64: ${{ secrets.EC2_SSH_KEY_B64 }}
         run: |
+          set -euo pipefail
+          echo "🔐 Setting up SSH..."
+
+          if [ -z "${EC2_HOST:-}" ]; then
+            echo "EC2_HOST secret is missing" >&2
+            exit 1
+          fi
+          if [ -z "${EC2_SSH_KEY:-}" ] && [ -z "${EC2_SSH_KEY_B64:-}" ]; then
+            echo "EC2_SSH_KEY (or EC2_SSH_KEY_B64) secret is missing" >&2
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          if [ -n "${EC2_SSH_KEY_B64:-}" ]; then
+            # Prefer base64-encoded secret to avoid newline corruption
+            if ! printf '%s' "$EC2_SSH_KEY_B64" | base64 -d > ~/.ssh/id_rsa 2>/dev/null; then
+              echo "EC2_SSH_KEY_B64 failed to decode; ensure it is a base64-encoded private key." >&2
+              exit 1
+            fi
+          else
+            printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+          fi
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          if ! grep -q "BEGIN [A-Z ]*PRIVATE KEY" ~/.ssh/id_rsa; then
+            echo "EC2_SSH_KEY appears to be malformed (missing BEGIN/END lines). Re-paste the key with newlines." >&2
+            exit 1
+          fi
+          if ! ssh-keygen -yf ~/.ssh/id_rsa >/dev/null 2>&1; then
+            echo "EC2_SSH_KEY failed to parse (libcrypto error). Re-paste the key with proper line breaks and a trailing newline." >&2
+            exit 1
+          fi
+
+          if ! ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "⚠️  ssh-keyscan failed for $EC2_HOST; continuing with StrictHostKeyChecking=no"
+            printf "Host *\n  StrictHostKeyChecking no\n" >> ~/.ssh/config
+          fi
+
+      - name: Check SSH connectivity
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          set -euo pipefail
+          echo "⏳ Checking SSH connectivity to $EC2_HOST:22 ..."
+          if ! nc -zv -w 5 "$EC2_HOST" 22; then
+            echo "❌ Cannot reach $EC2_HOST on port 22. Verify the instance is up and SG/firewall allows GitHub Actions." >&2
+            exit 1
+          fi
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" "echo 'SSH OK'"
       
       - name: Deploy Backend
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
         run: |
-          scp -i ~/.ssh/id_rsa backend/build/libs/fitness-app-0.0.1-SNAPSHOT.jar \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          set -euo pipefail
+          echo "📤 Uploading backend JAR..."
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no backend/build/libs/fitness-app.jar \
+            "$EC2_USER@$EC2_HOST":/tmp/fitness-app.jar
 
-          scp -i ~/.ssh/id_rsa infrastructure/backend/backend-deploy.sh \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          echo "📤 Uploading backend deployment script..."
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/backend-deploy.sh \
+            "$EC2_USER@$EC2_HOST":/tmp/
 
-          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
-            'cd /tmp && sudo bash backend-deploy.sh && rm -f backend-deploy.sh fitness-app-0.0.1-SNAPSHOT.jar'
+          echo "🚀 Deploying backend..."
+          ssh -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" \
+            'cd /tmp && sudo bash backend-deploy.sh && rm -f backend-deploy.sh fitness-app.jar'
+          
+          echo "✅ Backend deployed"
       
       - name: Deploy Frontend
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
         run: |
+          set -euo pipefail
+          echo "📦 Creating frontend package..."
           cd frontend/dist
           tar -czf ../frontend.tar.gz .
           cd ../..
 
-          scp -i ~/.ssh/id_rsa frontend/frontend.tar.gz \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          echo "📤 Uploading frontend package..."
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no frontend/frontend.tar.gz \
+            "$EC2_USER@$EC2_HOST":/tmp/
 
-          scp -i ~/.ssh/id_rsa infrastructure/frontend/frontend-deploy.sh \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          echo "📤 Uploading frontend deployment scripts..."
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/frontend-deploy.sh \
+            "$EC2_USER@$EC2_HOST":/tmp/
 
-          scp -i ~/.ssh/id_rsa infrastructure/frontend/nginx-frontend.conf \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+          scp -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no infrastructure/aurafitness-nginx-template.conf \
+            "$EC2_USER@$EC2_HOST":/tmp/aurafitness.conf
           
-          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          echo "🚀 Deploying frontend..."
+          ssh -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" << 'EOF'
             cd /tmp
             mkdir -p frontend-tmp/dist
             tar -xzf frontend.tar.gz -C frontend-tmp/dist/
             mv frontend-deploy.sh frontend-tmp/
-            mv nginx-frontend.conf frontend-tmp/
+            mv aurafitness.conf frontend-tmp/
             cd frontend-tmp
             sudo bash frontend-deploy.sh
             cd /tmp
             rm -rf frontend-tmp frontend.tar.gz
           EOF
+          
+          echo "✅ Frontend deployed"
       
       # ==========================================
       # VERIFY DEPLOYMENT
@@ -105,12 +181,36 @@ jobs:
       
       - name: Verify Backend
         run: |
+          echo "⏳ Waiting for backend to start..."
           sleep 15
-          curl -f --retry 5 --retry-delay 10 --retry-all-errors \
-            http://${{ secrets.EC2_HOST }}:8080/actuator/health || \
-          curl -f --retry 5 --retry-delay 10 --retry-all-errors \
-            http://${{ secrets.EC2_HOST }}:8080/api/v1/health || \
-          echo "Backend starting..."
+          
+          echo "🔍 Checking backend health..."
+          if curl -f --retry 5 --retry-delay 10 --retry-all-errors \
+            http://${{ secrets.EC2_HOST }}:8080/actuator/health; then
+            echo "✅ Backend is healthy!"
+          elif curl -f --retry 5 --retry-delay 10 --retry-all-errors \
+            http://${{ secrets.EC2_HOST }}:8080/api/v1/health; then
+            echo "✅ Backend is healthy!"
+          else
+            echo "⚠️  Backend health check failed"
+          fi
       
       - name: Verify Frontend
-        run: curl -f http://${{ secrets.EC2_HOST }} || echo "Frontend starting..."
+        run: |
+          echo "🔍 Checking frontend..."
+          if curl -f http://${{ secrets.EC2_HOST }}; then
+            echo "✅ Frontend is accessible!"
+          else
+            echo "⚠️  Frontend check failed"
+          fi
+      
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo ""
+          echo "======================================"
+          echo "📊 Deployment Summary"
+          echo "======================================"
+          echo "🌐 Backend:  http://${{ secrets.EC2_HOST }}:8080"
+          echo "🌐 Frontend: http://${{ secrets.EC2_HOST }}"
+          echo "======================================"

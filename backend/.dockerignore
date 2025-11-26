@@ -1,0 +1,54 @@
+# Build artifacts
+.gradle/
+build/
+bin/
+out/
+target/
+
+# IDE files
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+*.iml
+*.iws
+*.ipr
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+.jacoco/
+*.exec
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+README*
+docs/
+
+# CI/CD
+.github/
+
+# Environment files (secrets should not be in Docker images)
+.env
+.env.*
+*.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
