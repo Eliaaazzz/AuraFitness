@@ -116,7 +116,7 @@ jobs:
 
           echo "🚀 Executing Docker deployment on EC2..."
           ssh -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" \
-            "export DOCKER_IMAGE='$DOCKER_IMAGE' && cd /tmp && sudo bash backend-deploy.sh && rm -f backend-deploy.sh"
+            "cd /tmp && sudo DOCKER_IMAGE='$DOCKER_IMAGE' bash backend-deploy.sh && rm -f backend-deploy.sh"
 
           echo "✅ Deployment completed"
 

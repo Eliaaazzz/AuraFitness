@@ -90,8 +90,6 @@ fi
 
 echo -e "${GREEN}Step 5: Creating docker-compose.yml...${NC}"
 cat > ${COMPOSE_FILE} <<'EOF'
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
