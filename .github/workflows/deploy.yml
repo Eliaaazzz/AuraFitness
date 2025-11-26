@@ -1,9 +1,13 @@
-name: Deploy Full Stack
+name: Deploy Full Stack (Legacy JAR - Disabled)
+
+# ⚠️ This workflow is disabled in favor of Docker-based deployment
+# Use deploy-backend.yml instead for Docker deployment
+# To re-enable, uncomment the 'push' trigger below
 
 on:
-  push:
-    branches: [main, CF-17-mvp]
-  workflow_dispatch:
+  # push:
+  #   branches: [main, CF-17-mvp]
+  workflow_dispatch:  # Keep manual trigger available
 
 jobs:
   deploy:
