@@ -1,19 +1,16 @@
-import { api } from './api';
+import { api } from './apiClient';
 import { CurrentUserResponse, UserProfilePayload, UserProfileResponse } from '@/types';
 
 const getCurrentUser = async (): Promise<CurrentUserResponse> => {
-  const response = await api.get<CurrentUserResponse>('/api/v1/me');
-  return response.data;
+  return await api.get<CurrentUserResponse>('/api/v1/me');
 };
 
 const getProfile = async (): Promise<UserProfileResponse> => {
-  const response = await api.get<UserProfileResponse>('/api/v1/me/profile');
-  return response.data;
+  return await api.get<UserProfileResponse>('/api/v1/me/profile');
 };
 
 const upsertProfile = async (payload: UserProfilePayload): Promise<UserProfileResponse> => {
-  const response = await api.put<UserProfileResponse>('/api/v1/me/profile', payload);
-  return response.data;
+  return await api.put<UserProfileResponse>('/api/v1/me/profile', payload);
 };
 
 const deleteProfile = async (): Promise<void> => {
