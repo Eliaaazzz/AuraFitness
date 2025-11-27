@@ -76,7 +76,7 @@ class SmartRecipeServiceTest {
     when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     lenient().doNothing().when(valueOperations).set(anyString(), anyString(), any(Duration.class));
     smartRecipeService = new SmartRecipeService(userProfileRepository, workoutSessionRepository,
-        recipeRepository, mealPlanHistoryService, chatCompletionClient, objectMapper, redisTemplate, quotaService);
+        recipeRepository, mealPlanHistoryService, Optional.of(chatCompletionClient), objectMapper, redisTemplate, quotaService);
     ReflectionTestUtils.setField(smartRecipeService, "mealPlanModel", "gpt-4o");
     ReflectionTestUtils.setField(smartRecipeService, "cacheTtlHours", 24L);
     lenient().when(mealPlanHistoryService.latestPlan(any())).thenReturn(Optional.empty());
