@@ -6,11 +6,12 @@ import { getTheme, spacing } from '@/utils';
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type ButtonSize = 'small' | 'medium' | 'large';
 
-const sizeStyles: Record<ButtonSize, { paddingVertical: number; paddingHorizontal: number; textSize: number }> = {
+// Use a getter function to avoid module initialization order issues
+const getSizeStyles = (): Record<ButtonSize, { paddingVertical: number; paddingHorizontal: number; textSize: number }> => ({
   small: { paddingVertical: spacing.xs, paddingHorizontal: spacing.md, textSize: 14 },
   medium: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, textSize: 16 },
   large: { paddingVertical: spacing.md, paddingHorizontal: spacing['2xl'], textSize: 18 },
-};
+});
 
 export interface ButtonProps extends React.ComponentProps<typeof PaperButton> {
   title: string;
@@ -24,6 +25,7 @@ export const Button = ({ title, variant = 'primary', size = 'medium', icon, load
   const mode: 'contained' | 'outlined' | 'text' =
     variant === 'primary' ? 'contained' : variant === 'outline' ? 'outlined' : 'text';
 
+  const sizeStyles = getSizeStyles();
   const contentStyle = {
     paddingVertical: sizeStyles[size].paddingVertical,
   };
