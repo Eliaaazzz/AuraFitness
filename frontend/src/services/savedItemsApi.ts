@@ -10,7 +10,8 @@ import type { SavedWorkout, SavedRecipe } from '@/types';
  * Save a workout to user's library
  */
 export async function saveWorkout(workoutId: string, userId: string): Promise<SavedWorkout> {
-  const response = await api.post<SavedWorkout>(`/api/v1/workouts/${workoutId}/save`, {
+  const response = await api.post<SavedWorkout>('/api/v1/workouts/save', {
+    workoutId,
     userId,
   });
   return response;
@@ -20,7 +21,8 @@ export async function saveWorkout(workoutId: string, userId: string): Promise<Sa
  * Save a recipe to user's library
  */
 export async function saveRecipe(recipeId: string, userId: string): Promise<SavedRecipe> {
-  const response = await api.post<SavedRecipe>(`/api/v1/recipes/${recipeId}/save`, {
+  const response = await api.post<SavedRecipe>('/api/v1/recipes/save', {
+    recipeId,
     userId,
   });
   return response;
@@ -46,4 +48,24 @@ export async function getSavedRecipes(userId?: string): Promise<SavedRecipe[]> {
   }
   const response = await api.get<SavedRecipe[]>(`/api/v1/recipes/saved?userId=${userId}`);
   return response;
+}
+
+/**
+ * Remove a saved workout from user's library
+ */
+export async function removeSavedWorkout(workoutId: string, userId?: string): Promise<void> {
+  const url = userId
+    ? `/api/v1/workouts/saved/${workoutId}?userId=${userId}`
+    : `/api/v1/workouts/saved/${workoutId}`;
+  await api.delete(url);
+}
+
+/**
+ * Remove a saved recipe from user's library
+ */
+export async function removeSavedRecipe(recipeId: string, userId?: string): Promise<void> {
+  const url = userId
+    ? `/api/v1/recipes/saved/${recipeId}?userId=${userId}`
+    : `/api/v1/recipes/saved/${recipeId}`;
+  await api.delete(url);
 }

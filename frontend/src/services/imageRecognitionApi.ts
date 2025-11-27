@@ -14,7 +14,7 @@ export async function uploadWorkoutImage(
   metadata?: UploadWorkoutPayload
 ): Promise<WorkoutCard[]> {
   const response = await api.uploadImage<WorkoutCard[]>(
-    '/api/v1/image-recognition/workout',
+    '/api/v1/workouts/from-image',
     imageUri,
     metadata
   );
@@ -29,7 +29,7 @@ export async function uploadRecipeImage(
   payload?: UploadRecipePayload
 ): Promise<RecipeCard[]> {
   const response = await api.uploadImage<RecipeCard[]>(
-    '/api/v1/image-recognition/recipe',
+    '/api/v1/recipes/from-image',
     imageUri,
     payload
   );
