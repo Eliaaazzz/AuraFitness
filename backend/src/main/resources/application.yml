@@ -71,8 +71,8 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      # Use none to skip schema validation during development
-      ddl-auto: none
+      # Validate schema matches entities (Flyway manages migrations)
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
