@@ -5,6 +5,9 @@
 
 set -e
 
+# Error handling
+trap 'echo -e "\n${RED}ERROR: Deployment failed at line $LINENO${NC}" >&2; exit 1' ERR
+
 echo "========================================="
 echo "Fitness App Docker Deployment"
 echo "========================================="
@@ -43,7 +46,11 @@ if ! command -v docker-compose &> /dev/null; then
 fi
 
 echo "Docker version: $(docker --version)"
-echo "Docker Compose version: $(docker-compose --version)"
+if command -v docker-compose &> /dev/null; then
+    echo "Docker Compose version: $(timeout 5 docker-compose --version 2>/dev/null || echo 'Could not get version')"
+else
+    echo -e "${YELLOW}docker-compose command not available after installation${NC}"
+fi
 
 echo -e "${GREEN}Step 2: Migrating from systemd (if needed)...${NC}"
 if systemctl is-active --quiet fitness-app; then
@@ -159,13 +166,24 @@ services:
 EOF
 
 echo -e "${GREEN}Step 6: Pulling latest Docker image...${NC}"
-docker pull ${DOCKER_IMAGE} || echo -e "${YELLOW}Could not pull image. Will use local image if available.${NC}"
+echo "Pulling image: ${DOCKER_IMAGE}"
+if docker pull ${DOCKER_IMAGE}; then
+    echo -e "${GREEN}Image pulled successfully${NC}"
+else
+    echo -e "${YELLOW}Could not pull image. Will use local image if available.${NC}"
+fi
 
 echo -e "${GREEN}Step 7: Stopping old containers...${NC}"
 cd ${APP_DIR}
-docker-compose down || true
+if docker-compose ps -q 2>/dev/null | grep -q .; then
+    echo "Stopping running containers..."
+    docker-compose down || true
+else
+    echo "No running containers to stop"
+fi
 
 echo -e "${GREEN}Step 8: Starting containers...${NC}"
+echo "Starting services with image: ${DOCKER_IMAGE}"
 docker-compose --env-file ${ENV_FILE} up -d
 
 echo -e "${GREEN}Step 9: Waiting for application to be healthy...${NC}"
