@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -15,7 +15,13 @@ const App = () => {
   const colorScheme = useColorScheme();
   const barStyle = colorScheme === 'dark' ? 'light' : 'dark';
 
-  const paperTheme = colorScheme === 'dark' ? PaperDarkTheme : PaperLightTheme;
+  // Ensure theme has all required properties for web platform
+  const baseTheme = colorScheme === 'dark' ? PaperDarkTheme : PaperLightTheme;
+  const paperTheme = {
+    ...baseTheme,
+    // Ensure direction is set for web compatibility
+    direction: Platform.OS === 'web' ? 'ltr' : (baseTheme.direction || 'ltr'),
+  };
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: BRAND_COLORS.background }}>
