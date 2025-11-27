@@ -89,20 +89,20 @@ jobs:
           cd frontend/dist
           tar -czf ../frontend.tar.gz .
           cd ../..
-          
+
           echo "📤 Uploading frontend package..."
-          scp -i ~/.ssh/id_rsa frontend/frontend.tar.gz \
-            "$EC2_USER@$EC2_HOST":/tmp/
-          
-          echo "📤 Uploading deployment script..."
-          scp -i ~/.ssh/id_rsa infrastructure/frontend-deploy.sh \
+          scp -i ~/.ssh/id_rsa -o ServerAliveInterval=30 -o ServerAliveCountMax=10 frontend/frontend.tar.gz \
             "$EC2_USER@$EC2_HOST":/tmp/
 
-          scp -i ~/.ssh/id_rsa infrastructure/aurafitness-nginx-template.conf \
+          echo "📤 Uploading deployment script..."
+          scp -i ~/.ssh/id_rsa -o ServerAliveInterval=30 -o ServerAliveCountMax=10 infrastructure/frontend-deploy.sh \
+            "$EC2_USER@$EC2_HOST":/tmp/
+
+          scp -i ~/.ssh/id_rsa -o ServerAliveInterval=30 -o ServerAliveCountMax=10 infrastructure/aurafitness-nginx-template.conf \
             "$EC2_USER@$EC2_HOST":/tmp/aurafitness.conf
-          
+
           echo "🚀 Executing deployment on EC2..."
-          ssh -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" << 'EOF'
+          ssh -i ~/.ssh/id_rsa -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -tt "$EC2_USER@$EC2_HOST" << 'EOF'
             cd /tmp
             mkdir -p frontend-tmp/dist
             tar -xzf frontend.tar.gz -C frontend-tmp/dist/

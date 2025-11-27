@@ -6,6 +6,15 @@
 
 set -e
 
+# Colors for output (defined early for error trap)
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Error handling
+trap 'echo -e "\n${RED}ERROR: Deployment failed at line $LINENO${NC}" >&2; exit 1' ERR
+
 # Parse arguments
 SKIP_NGINX=false
 for arg in "$@"; do
@@ -28,12 +37,6 @@ NGINX_CONF_DIR="/etc/nginx/conf.d"
 NGINX_CONF="${NGINX_CONF_DIR}/${APP_NAME}.conf"
 SOURCE_DIR="./dist"
 BACKUP_DIR="/var/backups/${APP_NAME}"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
 
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
