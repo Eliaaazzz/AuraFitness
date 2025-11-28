@@ -17,10 +17,13 @@ const App = () => {
 
   // Ensure theme has all required properties for web platform
   const baseTheme = colorScheme === 'dark' ? PaperDarkTheme : PaperLightTheme;
+
+  // Calculate direction for cross-platform compatibility
+  const themeDirection = Platform.OS === 'web' ? 'ltr' : baseTheme.direction || 'ltr';
+
   const paperTheme = {
     ...baseTheme,
-    // Ensure direction is set for web compatibility
-    direction: Platform.OS === 'web' ? 'ltr' : (baseTheme.direction || 'ltr'),
+    direction: themeDirection,
   };
 
   return (
