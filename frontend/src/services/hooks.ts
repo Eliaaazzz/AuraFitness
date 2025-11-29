@@ -7,8 +7,24 @@ import {
   saveWorkout,
   uploadRecipeImage,
   uploadWorkoutImage,
+  removeSavedWorkout,
+  removeSavedRecipe,
 } from './api';
-import { RecipeCard, UploadRecipePayload, UploadWorkoutPayload, WorkoutCard, SavedWorkout, SavedRecipe } from '@/types';
+import { searchWorkouts, searchRecipes } from './imageRecognitionApi';
+import { RecipeCard, UploadRecipePayload, UploadWorkoutPayload, WorkoutCard, SavedWorkout, SavedRecipe, WorkoutSortOption, RecipeSortOption } from '@/types';
+
+// Default pagination and sort values (for backwards compatibility)
+export const DEFAULT_SAVED_PAGE_SIZE = 20;
+
+export const DEFAULT_WORKOUT_SORT: WorkoutSortOption = Object.freeze({
+  field: 'savedAt',
+  direction: 'desc',
+} as const);
+
+export const DEFAULT_RECIPE_SORT: RecipeSortOption = Object.freeze({
+  field: 'savedAt',
+  direction: 'desc',
+} as const);
 
 const mutationKeys = {
   uploadWorkout: ['upload', 'workout'] as const,
@@ -91,3 +107,58 @@ export const useSavedRecipes = (userId?: string) =>
     enabled: !!userId,
     queryFn: () => getSavedRecipes(userId),
   });
+
+// Search hooks for keyword search
+export const useSearchWorkouts = (query: string, level?: string) =>
+  useQuery<WorkoutCard[], Error>({
+    queryKey: ['search', 'workouts', query, level],
+    enabled: query.length >= 2,
+    queryFn: () => searchWorkouts(query, level),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+export const useSearchRecipes = (query: string) =>
+  useQuery<RecipeCard[], Error>({
+    queryKey: ['search', 'recipes', query],
+    enabled: query.length >= 2,
+    queryFn: () => searchRecipes(query),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+// Remove workout hook
+export const useRemoveWorkout = (userId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (workoutId) => {
+      if (!userId) {
+        return Promise.reject(new Error('Missing user context'));
+      }
+      return removeSavedWorkout(workoutId, userId);
+    },
+    onSuccess: (_, workoutId) => {
+      if (!userId) return;
+      queryClient.setQueryData<SavedWorkout[]>(queryKeys.savedWorkouts(userId), (existing = []) => {
+        return existing.filter((item) => item.id !== workoutId);
+      });
+    },
+  });
+};
+
+// Remove recipe hook
+export const useRemoveRecipe = (userId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (recipeId) => {
+      if (!userId) {
+        return Promise.reject(new Error('Missing user context'));
+      }
+      return removeSavedRecipe(recipeId, userId);
+    },
+    onSuccess: (_, recipeId) => {
+      if (!userId) return;
+      queryClient.setQueryData<SavedRecipe[]>(queryKeys.savedRecipes(userId), (existing = []) => {
+        return existing.filter((item) => item.id !== recipeId);
+      });
+    },
+  });
+};

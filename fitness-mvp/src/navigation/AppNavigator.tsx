@@ -1,4 +1,16 @@
-import React from 'react';
+# Switch to Node 18 or 20 (if you have nvm)
+nvm use 18
+
+# From repo root
+cd fitness-mvp
+rm -rf node_modules
+npm install
+npx expo export:web --output-dir web-dist
+
+# Package and upload
+cd ..
+tar -czf frontend-web-deploy-fixed.tar.gz -C fitness-mvp/web-dist .
+scp -i Elialiuuuu.pem frontend-web-deploy-fixed.tar.gz ec2-user@3.104.117.222:/home/ec2-user/import React from 'react';
 import { Platform, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -190,3 +202,7 @@ export const AppNavigator = () => {
     </NavigationContainer>
   );
 };
+
+
+
+

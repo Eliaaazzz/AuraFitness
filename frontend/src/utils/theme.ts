@@ -1,41 +1,81 @@
 import { Platform } from 'react-native';
 
+/**
+ * Material Design 3 Inspired Color Palette
+ * Purple Color Scheme - Clean, Modern
+ */
 export const colors = {
   light: {
-    primary: '#FF6B6B',
-    primaryDark: '#F04A4A',
-    secondary: '#4ECDC4',
-    background: '#F8FAFC',
+    // Primary - Purple
+    primary: '#7C3AED',           // Violet-600
+    primaryDark: '#6D28D9',       // Violet-700
+    primaryLight: '#A78BFA',      // Violet-400
+    primaryContainer: '#EDE9FE',  // Violet-100
+    
+    secondary: '#EC4899',         // Pink-500
+    secondaryContainer: '#FCE7F3',
+    
+    // Surfaces
+    background: '#FAFAFA',
     surface: '#FFFFFF',
-    textPrimary: '#0F172A',
-    textSecondary: '#475569',
-    textMuted: '#94A3B8',
-    error: '#F87171',
-    success: '#34D399',
-    border: '#E2E8F0',
-    overlay: 'rgba(15, 23, 42, 0.6)',
+    surfaceVariant: '#F5F3FF',    // Very light violet
+    
+    // Text
+    textPrimary: '#1F2937',       // Gray-800
+    textSecondary: '#6B7280',     // Gray-500
+    textMuted: '#9CA3AF',         // Gray-400
+    
+    // States
+    error: '#EF4444',
+    success: '#10B981',
+    warning: '#F59E0B',
+    
+    // Borders
+    border: '#E5E7EB',
+    borderSubtle: '#F3F4F6',
+    
+    overlay: 'rgba(0, 0, 0, 0.5)',
   },
   dark: {
-    primary: '#FF8787',
-    primaryDark: '#FF6B6B',
-    secondary: '#67E8F9',
-    background: '#0D1B2A',
-    surface: '#1B263B',
-    textPrimary: '#E2E8F0',
-    textSecondary: '#CBD5F5',
-    textMuted: '#64748B',
-    error: '#FB7185',
-    success: '#22D3EE',
-    border: 'rgba(148, 163, 184, 0.24)',
-    overlay: 'rgba(2, 6, 23, 0.7)',
+    // Primary - Purple (brighter on dark background)
+    primary: '#A78BFA',           // Violet-400
+    primaryDark: '#8B5CF6',       // Violet-500
+    primaryLight: '#C4B5FD',      // Violet-300
+    primaryContainer: '#4C1D95',  // Violet-900
+    
+    secondary: '#F472B6',         // Pink-400
+    secondaryContainer: '#831843',
+    
+    // Surfaces - Material Dark
+    background: '#121212',        // Material Dark background
+    surface: '#1E1E1E',           // Elevated surface
+    surfaceVariant: '#2D2D2D',    // Higher elevation
+    
+    // Text
+    textPrimary: '#F9FAFB',       // Gray-50
+    textSecondary: '#D1D5DB',     // Gray-300
+    textMuted: '#9CA3AF',         // Gray-400
+    
+    // States
+    error: '#F87171',
+    success: '#34D399',
+    warning: '#FBBF24',
+    
+    // Borders - subtle
+    border: 'rgba(255, 255, 255, 0.12)',
+    borderHover: 'rgba(255, 255, 255, 0.2)',
+    borderSubtle: 'rgba(255, 255, 255, 0.06)',
+    
+    overlay: 'rgba(0, 0, 0, 0.7)',
   },
 };
 
 export const typography = {
   fontFamily: {
-    regular: Platform.select({ ios: 'System', android: 'Roboto' }),
-    medium: Platform.select({ ios: 'System', android: 'Roboto-Medium' }),
-    bold: Platform.select({ ios: 'System', android: 'Roboto-Bold' }),
+    // System fonts with better fallbacks
+    regular: Platform.select({ ios: 'System', android: 'Roboto', default: '-apple-system, BlinkMacSystemFont, Inter, sans-serif' }),
+    medium: Platform.select({ ios: 'System', android: 'Roboto-Medium', default: '-apple-system, BlinkMacSystemFont, Inter, sans-serif' }),
+    bold: Platform.select({ ios: 'System', android: 'Roboto-Bold', default: '-apple-system, BlinkMacSystemFont, Inter, sans-serif' }),
   },
   size: {
     xs: 12,
@@ -45,6 +85,19 @@ export const typography = {
     xl: 20,
     '2xl': 24,
     '3xl': 32,
+    '4xl': 40,
+  },
+  // Letter spacing for premium feel
+  letterSpacing: {
+    tight: -0.5,    // For headlines - compact, powerful
+    normal: 0,
+    wide: 0.5,      // For labels - elegant
+    widest: 1.5,    // For small caps - luxurious
+  },
+  lineHeight: {
+    tight: 1.2,
+    normal: 1.5,
+    relaxed: 1.75,
   },
 };
 
@@ -64,55 +117,76 @@ export const radii = {
   md: 8,
   lg: 12,
   xl: 16,
+  '2xl': 20,
   pill: 24,
   full: 9999,
 };
 
+/**
+ * Premium Shadows - Softer, more diffused
+ * Key: Lower opacity, larger radius for that "floating" feel
+ */
 export const shadows = {
   light: {
     light: {
-      shadowColor: '#0F172A',
+      shadowColor: '#18181B',
+      shadowOffset: { width: 0, height: 4 },
+      shadowRadius: 16,
+      shadowOpacity: 0.04,
+      elevation: 4,
+    },
+    medium: {
+      shadowColor: '#18181B',
       shadowOffset: { width: 0, height: 8 },
       shadowRadius: 24,
       shadowOpacity: 0.06,
-      elevation: 6,
+      elevation: 8,
     },
-    medium: {
-      shadowColor: '#0F172A',
+    heavy: {
+      shadowColor: '#18181B',
       shadowOffset: { width: 0, height: 12 },
       shadowRadius: 32,
       shadowOpacity: 0.08,
-      elevation: 10,
+      elevation: 12,
     },
-    heavy: {
-      shadowColor: '#0F172A',
-      shadowOffset: { width: 0, height: 16 },
-      shadowRadius: 48,
-      shadowOpacity: 0.12,
-      elevation: 16,
+    // Premium glow effect for cards
+    glow: {
+      shadowColor: '#10B981',
+      shadowOffset: { width: 0, height: 0 },
+      shadowRadius: 40,
+      shadowOpacity: 0.15,
+      elevation: 0,
     },
   },
   dark: {
     light: {
-      shadowColor: '#020617',
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowRadius: 16,
+      shadowOpacity: 0.3,
+      elevation: 4,
+    },
+    medium: {
+      shadowColor: '#000000',
       shadowOffset: { width: 0, height: 8 },
       shadowRadius: 24,
       shadowOpacity: 0.4,
-      elevation: 6,
-    },
-    medium: {
-      shadowColor: '#020617',
-      shadowOffset: { width: 0, height: 12 },
-      shadowRadius: 32,
-      shadowOpacity: 0.45,
-      elevation: 10,
+      elevation: 8,
     },
     heavy: {
-      shadowColor: '#020617',
-      shadowOffset: { width: 0, height: 16 },
-      shadowRadius: 48,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowRadius: 32,
       shadowOpacity: 0.5,
-      elevation: 16,
+      elevation: 12,
+    },
+    // Premium glow effect for dark mode
+    glow: {
+      shadowColor: '#34D399',
+      shadowOffset: { width: 0, height: 0 },
+      shadowRadius: 60,
+      shadowOpacity: 0.2,
+      elevation: 0,
     },
   },
 };
@@ -124,3 +198,23 @@ export const getTheme = (mode: 'light' | 'dark') => ({
   radii,
   shadows: shadows[mode],
 });
+
+/**
+ * Premium Animation Timing
+ * Smooth, not snappy - feels more luxurious
+ */
+export const animation = {
+  duration: {
+    fast: 150,
+    normal: 250,
+    slow: 400,
+    verySlow: 600,
+  },
+  easing: {
+    // Bezier curves for smooth animations
+    default: 'cubic-bezier(0.4, 0, 0.2, 1)',
+    in: 'cubic-bezier(0.4, 0, 1, 1)',
+    out: 'cubic-bezier(0, 0, 0.2, 1)',
+    bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+  },
+};

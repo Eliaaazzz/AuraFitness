@@ -1,0 +1,25 @@
+{
+  "name": "aurafitness-infrastructure",
+  "version": "1.0.0",
+  "description": "Infrastructure scripts for AuraFitness",
+  "private": true,
+  "scripts": {
+    "upload-images": "ts-node --esm upload-images-to-r2.ts",
+    "list-images": "ts-node --esm upload-images-to-r2.ts --list",
+    "sync-spoonacular": "ts-node --esm sync-spoonacular-to-r2.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.450.0",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.2"
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
+}

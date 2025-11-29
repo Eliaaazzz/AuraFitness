@@ -146,7 +146,7 @@ export const ResultsScreen = () => {
                   />
                 )}
                 {isSaved && (
-                  <Text variant="caption" style={styles.savedTag}>已保存到你的收藏</Text>
+                  <Text variant="caption" style={styles.savedTag}>Saved to your library</Text>
                 )}
               </View>
             );

@@ -5,15 +5,38 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useColorScheme } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { CaptureScreen } from '@/screens/CaptureScreen';
+import { ErrorBoundary } from '@/components';
+import { SearchScreen } from '@/screens/SearchScreen';
 import { WorkoutsScreen } from '@/screens/WorkoutsScreen';
 import { RecipesScreen } from '@/screens/RecipesScreen';
+import { RecipeDetailScreen } from '@/screens/RecipeDetailScreen';
 import { ResultsScreen } from '@/screens/ResultsScreen';
 import { DesignSystemScreen } from '@/screens/DesignSystemScreen';
 import { MealPlanScreen } from '@/screens/MealPlanScreen';
 import { CommunityScreen } from '@/screens/CommunityScreen';
 import { GoalsScreen } from '@/screens/GoalsScreen';
 import { BRAND_COLORS, TAB_ICON_SIZE, useResponsive } from '@/utils';
+
+// Wrap screens with ErrorBoundary to prevent white screen crashes
+const withErrorBoundary = (Component: React.ComponentType<any>, screenName: string) => {
+  return function WrappedScreen(props: any) {
+    return (
+      <ErrorBoundary>
+        <Component {...props} />
+      </ErrorBoundary>
+    );
+  };
+};
+
+const SafeSearchScreen = withErrorBoundary(SearchScreen, 'Search');
+const SafeWorkoutsScreen = withErrorBoundary(WorkoutsScreen, 'Workouts');
+const SafeRecipesScreen = withErrorBoundary(RecipesScreen, 'Recipes');
+const SafeRecipeDetailScreen = withErrorBoundary(RecipeDetailScreen, 'RecipeDetail');
+const SafeResultsScreen = withErrorBoundary(ResultsScreen, 'Results');
+const SafeMealPlanScreen = withErrorBoundary(MealPlanScreen, 'MealPlan');
+const SafeCommunityScreen = withErrorBoundary(CommunityScreen, 'Community');
+const SafeGoalsScreen = withErrorBoundary(GoalsScreen, 'Goals');
+const SafeDesignSystemScreen = withErrorBoundary(DesignSystemScreen, 'DesignSystem');
 
 const Tab = createBottomTabNavigator();
 
@@ -65,7 +88,7 @@ export const AppNavigator = () => {
   return (
     <NavigationContainer theme={colorScheme === 'dark' ? DarkNavigationTheme : LightNavigationTheme}>
       <Tab.Navigator
-        initialRouteName="Capture"
+        initialRouteName="Search"
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarActiveTintColor: BRAND_COLORS.primary,
@@ -98,10 +121,10 @@ export const AppNavigator = () => {
           tabBarBackground,
           tabBarIcon: ({ color, focused }) => {
             switch (route.name) {
-              case 'Capture':
+              case 'Search':
                 return (
                   <Feather
-                    name="camera"
+                    name="search"
                     size={focused ? TAB_ICON_SIZE.focused : TAB_ICON_SIZE.default}
                     color={color}
                   />
@@ -168,20 +191,29 @@ export const AppNavigator = () => {
           },
         })}
       >
-        <Tab.Screen name="Capture" component={CaptureScreen} options={{ title: 'Capture' }} />
-        <Tab.Screen name="Community" component={CommunityScreen} options={{ title: 'Community' }} />
-        <Tab.Screen name="Workouts" component={WorkoutsScreen} options={{ title: 'Workouts' }} />
-        <Tab.Screen name="MealPlan" component={MealPlanScreen} options={{ title: 'Meal Plan' }} />
-        <Tab.Screen name="Recipes" component={RecipesScreen} options={{ title: 'Recipes' }} />
-        <Tab.Screen name="Goals" component={GoalsScreen} options={{ title: 'Goals' }} />
+        <Tab.Screen name="Search" component={SafeSearchScreen} options={{ title: 'Search' }} />
+        <Tab.Screen name="Community" component={SafeCommunityScreen} options={{ title: 'Community' }} />
+        <Tab.Screen name="Workouts" component={SafeWorkoutsScreen} options={{ title: 'Workouts' }} />
+        <Tab.Screen name="MealPlan" component={SafeMealPlanScreen} options={{ title: 'Meal Plan' }} />
+        <Tab.Screen name="Recipes" component={SafeRecipesScreen} options={{ title: 'Recipes' }} />
+        <Tab.Screen name="Goals" component={SafeGoalsScreen} options={{ title: 'Goals' }} />
         {__DEV__ && (
-          <Tab.Screen name="DesignSystem" component={DesignSystemScreen} options={{ title: 'Design' }} />
+          <Tab.Screen name="DesignSystem" component={SafeDesignSystemScreen} options={{ title: 'Design' }} />
         )}
         <Tab.Screen
           name="Results"
-          component={ResultsScreen}
+          component={SafeResultsScreen}
           options={{
             title: 'Results',
+            // Hide from the tab bar but keep routable for navigation
+            tabBarButton: () => null,
+          }}
+        />
+        <Tab.Screen
+          name="RecipeDetail"
+          component={SafeRecipeDetailScreen}
+          options={{
+            title: 'Recipe',
             // Hide from the tab bar but keep routable for navigation
             tabBarButton: () => null,
           }}

@@ -4,15 +4,11 @@
  */
 
 import { Platform } from 'react-native';
-import { API_BASE_URL } from '@env';
+import { API_BASE_URL, API_KEY } from '@env';
 
-// Use production URL on web, fallback to localhost for development
+// Use the environment variable for all platforms
 const getBaseURL = () => {
-  if (Platform.OS === 'web') {
-    // On web, use relative URL to leverage Nginx proxy
-    return window.location.origin;
-  }
-  // On mobile, use the environment variable or default
+  // Always use the environment variable
   return API_BASE_URL || 'http://localhost:8080';
 };
 
@@ -49,6 +45,7 @@ async function request<T>(endpoint: string, config: RequestConfig = { method: 'G
 
     const headers: Record<string, string> = {
       'Accept': 'application/json',
+      'X-API-Key': API_KEY || '',
       ...config.headers,
     };
 

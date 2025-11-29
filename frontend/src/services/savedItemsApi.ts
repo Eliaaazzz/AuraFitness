@@ -7,6 +7,19 @@ import { api } from './apiClient';
 import type { SavedWorkout, SavedRecipe } from '@/types';
 
 /**
+ * Paginated response structure from the API
+ */
+interface PaginatedResponse<T> {
+  data: {
+    items: T[];
+    page: number;
+    size: number;
+    total: number;
+    hasNext: boolean;
+  };
+}
+
+/**
  * Save a workout to user's library
  */
 export async function saveWorkout(workoutId: string, userId: string): Promise<SavedWorkout> {
@@ -35,8 +48,9 @@ export async function getSavedWorkouts(userId?: string): Promise<SavedWorkout[]>
   if (!userId) {
     return [];
   }
-  const response = await api.get<SavedWorkout[]>(`/api/v1/workouts/saved?userId=${userId}`);
-  return response;
+  const response = await api.get<PaginatedResponse<SavedWorkout>>(`/api/v1/workouts/saved?userId=${userId}`);
+  // API returns paginated response, extract items array
+  return response?.data?.items ?? [];
 }
 
 /**
@@ -46,8 +60,9 @@ export async function getSavedRecipes(userId?: string): Promise<SavedRecipe[]> {
   if (!userId) {
     return [];
   }
-  const response = await api.get<SavedRecipe[]>(`/api/v1/recipes/saved?userId=${userId}`);
-  return response;
+  const response = await api.get<PaginatedResponse<SavedRecipe>>(`/api/v1/recipes/saved?userId=${userId}`);
+  // API returns paginated response, extract items array
+  return response?.data?.items ?? [];
 }
 
 /**

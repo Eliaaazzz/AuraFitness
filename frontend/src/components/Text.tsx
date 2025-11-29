@@ -1,45 +1,76 @@
 import React, { PropsWithChildren } from 'react';
-import { Text as PaperText } from 'react-native-paper';
-import { typography } from '@/utils';
+import { Text as RNText, TextStyle, Platform } from 'react-native';
+import { colors } from '@/utils';
 
-type TextVariant = 'heading1' | 'heading2' | 'body' | 'caption' | 'label';
-type TextWeight = 'regular' | 'medium' | 'bold';
+type TextVariant = 'hero' | 'heading1' | 'heading2' | 'heading3' | 'body' | 'caption' | 'label';
+type TextWeight = 'regular' | 'medium' | 'semibold' | 'bold';
 
-export interface TextProps extends React.ComponentProps<typeof PaperText> {
+export interface TextProps {
   variant?: TextVariant;
   color?: string;
   weight?: TextWeight;
+  muted?: boolean;
+  style?: TextStyle | TextStyle[];
+  children?: React.ReactNode;
+  numberOfLines?: number;
+  selectable?: boolean;
 }
 
-const variantStyles: Record<TextVariant, { fontSize: number; lineHeight: number }> = {
-  heading1: { fontSize: 32, lineHeight: 40 },
-  heading2: { fontSize: 24, lineHeight: 32 },
-  body: { fontSize: 16, lineHeight: 24 },
-  caption: { fontSize: 14, lineHeight: 20 },
-  label: { fontSize: 12, lineHeight: 16 },
+const variantStyles: Record<TextVariant, { fontSize: number; lineHeight: number; defaultWeight: TextWeight }> = {
+  hero: { fontSize: 40, lineHeight: 48, defaultWeight: 'bold' },
+  heading1: { fontSize: 28, lineHeight: 36, defaultWeight: 'bold' },
+  heading2: { fontSize: 22, lineHeight: 28, defaultWeight: 'semibold' },
+  heading3: { fontSize: 18, lineHeight: 24, defaultWeight: 'semibold' },
+  body: { fontSize: 15, lineHeight: 22, defaultWeight: 'regular' },
+  caption: { fontSize: 13, lineHeight: 18, defaultWeight: 'regular' },
+  label: { fontSize: 12, lineHeight: 16, defaultWeight: 'medium' },
 };
 
-type FontFamilyKey = keyof typeof typography.fontFamily;
-
-const weightToFontFamily: Record<TextWeight, FontFamilyKey> = {
-  regular: 'regular',
-  medium: 'medium',
-  bold: 'bold',
+const weightValues: Record<TextWeight, TextStyle['fontWeight']> = {
+  regular: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
 };
 
-export const Text = ({ variant = 'body', weight = 'regular', color, style, children, ...rest }: PropsWithChildren<TextProps>) => (
-  <PaperText
-    {...rest}
-    style={[
-      {
-        color,
-        fontSize: variantStyles[variant].fontSize,
-        lineHeight: variantStyles[variant].lineHeight,
-        fontFamily: typography.fontFamily[weightToFontFamily[weight]],
-      },
-      style,
-    ]}
-  >
-    {children}
-  </PaperText>
-);
+/**
+ * Text - Material Design 3 Style
+ * Clean typography system
+ */
+export const Text = ({ 
+  variant = 'body', 
+  weight,
+  color, 
+  muted,
+  style, 
+  children, 
+  ...rest 
+}: PropsWithChildren<TextProps>) => {
+  const config = variantStyles[variant];
+  const finalWeight = weight || config.defaultWeight;
+  const dark = colors.dark;
+  
+  const textColor = color || (muted ? dark.textMuted : dark.textPrimary);
+
+  return (
+    <RNText
+      {...rest}
+      style={[
+        {
+          color: textColor,
+          fontSize: config.fontSize,
+          lineHeight: config.lineHeight,
+          fontWeight: weightValues[finalWeight],
+          fontFamily: Platform.select({
+            ios: 'System',
+            android: 'Roboto',
+            default: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          }),
+        },
+        style,
+      ]}
+    >
+      {children}
+    </RNText>
+  );
+};
