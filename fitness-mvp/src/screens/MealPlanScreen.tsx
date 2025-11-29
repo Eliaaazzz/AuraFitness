@@ -33,12 +33,12 @@ export const MealPlanScreen = () => {
       <SafeAreaWrapper>
         <Container>
           <Card style={styles.emptyCard}>
-            <Card.Title title="无法加载用户信息" />
+            <Card.Title title="Unable to load user info" />
             <Card.Content>
               <PaperText variant="bodyMedium" style={{ marginBottom: spacing.md }}>
-                请检查你的网络连接或 API Key 设置，然后重试。
+                Please check your network connection or API Key settings and try again.
               </PaperText>
-              <Button title="重试" onPress={() => currentUserQuery.refetch()} />
+              <Button title="Retry" onPress={() => currentUserQuery.refetch()} />
             </Card.Content>
           </Card>
         </Container>
@@ -135,7 +135,7 @@ export const MealPlanScreen = () => {
             loading={generateMutation.isPending}
             onPress={() => {
               if (!userId) {
-                snackbar.showSnackbar('需要登录用户才能生成计划', { variant: 'error' });
+                snackbar.showSnackbar('Please log in to generate a plan', { variant: 'error' });
                 return;
               }
               generateMutation.mutate(userId);
@@ -148,7 +148,7 @@ export const MealPlanScreen = () => {
         {insightQuery.data && (
           <Card style={styles.insightCard}>
             <Card.Title
-              title="周度营养洞察"
+              title="Weekly Nutrition Insights"
               subtitle={new Date(insightQuery.data.summary.rangeStart).toLocaleDateString()}
             />
             <Card.Content>
@@ -176,16 +176,16 @@ export const MealPlanScreen = () => {
             }
             ListEmptyComponent={
               <Card style={styles.emptyCard}>
-                <Card.Title title="还没有生成餐食计划" />
+                <Card.Title title="No meal plan generated yet" />
                 <Card.Content>
                   <PaperText variant="bodyMedium" style={{ marginBottom: spacing.md }}>
-                    点击上方的“Regenerate”按钮，即可为你生成7天的个性化饮食安排。
+                    Click the "Regenerate" button above to generate a personalized 7-day meal plan.
                   </PaperText>
                   <Button
-                    title="生成周计划"
+                    title="Generate Weekly Plan"
                     onPress={() => {
                       if (!userId) {
-                        snackbar.showSnackbar('需要登录用户才能生成计划', { variant: 'error' });
+                        snackbar.showSnackbar('Please log in to generate a plan', { variant: 'error' });
                         return;
                       }
                       generateMutation.mutate(userId);

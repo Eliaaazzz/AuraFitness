@@ -231,37 +231,68 @@ public class SmartRecipeService {
 
     StringBuilder trainingSummary = new StringBuilder();
     if (exerciseCounts.isEmpty()) {
-      trainingSummary.append("过去7天无记录训练");
+      trainingSummary.append("No training recorded in the past 7 days");
     } else {
-      trainingSummary.append("过去7天训练总时长约").append(Math.max(totalMinutes, 30)).append("分钟，");
-      trainingSummary.append("训练类型统计: ");
+      trainingSummary.append("Total training time in past 7 days: ~").append(Math.max(totalMinutes, 30)).append(" minutes. ");
+      trainingSummary.append("Exercise type breakdown: ");
       exerciseCounts.entrySet().stream()
           .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
           .forEach(entry -> trainingSummary.append(entry.getKey())
-              .append(" x ").append(entry.getValue()).append("次; "));
+              .append(" x ").append(entry.getValue()).append(" sessions; "));
     }
 
-    return "请根据以下用户信息生成连续7天的饮食计划，每天4餐(早餐/午餐/晚餐/加餐)。" +
-        "使用JSON格式返回，不要附加额外文字。\n" +
-        "用户信息:\n" +
-        "目标: " + goal + "\n" +
-        "饮食偏好: " + dietary + "\n" +
-        "过敏原: " + allergens + "\n" +
-        "身高: " + Optional.ofNullable(profile.getHeightCm()).orElse(170) + " cm" + "\n" +
-        "体重: " + Optional.ofNullable(profile.getWeightKg()).orElse(65.0) + " kg" + "\n" +
-        "训练概要: " + trainingSummary + "\n" +
-        "每日营养目标 (不要省略): " +
-        "卡路里=" + target.calories() + "kcal, " +
-        "蛋白质=" + target.protein() + "g, " +
-        "碳水=" + target.carbs() + "g, " +
-        "脂肪=" + target.fat() + "g.\n" +
-        "要求:\n" +
-        "1. 按 JSON 返回: {\"days\":[{\"dayNumber\":1,\"meals\":[{\"type\":\"breakfast\",\"recipeName\":\"...\",\"calories\":450,\"protein\":30,\"carbs\":55,\"fat\":12}]}]}\n" +
-        "2. 多样化食材, 避免重复; 确保中文菜名。\n" +
-        "3. 卡路里和三大营养素需接近目标 (误差<5%).\n" +
-        "4. 每个 meal 节点必须包含 recipeName、calories、protein、carbs、fat 字段。\n" +
-        "5. 每天生成 4 餐 (breakfast, lunch, dinner, snack)。\n" +
-        "6. 如果某些偏好导致难生成, 请自动调整但必须说明原因。";
+    // Fetch all available recipes from database
+    List<Recipe> availableRecipes = recipeRepository.findAll();
+    StringBuilder recipeList = new StringBuilder();
+    recipeList.append("\nAVAILABLE RECIPES (you MUST choose from this list only):\n");
+
+    if (availableRecipes.isEmpty()) {
+      log.warn("No recipes found in database for AI meal plan generation");
+      recipeList.append("(No recipes available - fallback mode will be used)\n");
+    } else {
+      for (Recipe recipe : availableRecipes) {
+        // Extract nutrition from JsonNode
+        int calories = extractNutritionInt(recipe, "calories", 350);
+        double protein = extractNutritionDouble(recipe, "protein", 20.0);
+        double carbs = extractNutritionDouble(recipe, "carbs", 40.0);
+        double fat = extractNutritionDouble(recipe, "fat", 12.0);
+
+        recipeList.append(String.format(
+            "- %s (Calories: %d, Protein: %.1fg, Carbs: %.1fg, Fat: %.1fg, Difficulty: %s)\n",
+            recipe.getTitle(),
+            calories,
+            protein,
+            carbs,
+            fat,
+            recipe.getDifficulty() != null ? recipe.getDifficulty() : "MEDIUM"
+        ));
+      }
+    }
+
+    return "You are a professional nutritionist AI. Generate a 7-day meal plan with 4 meals per day (breakfast/lunch/dinner/snack) based on the user information and available recipes below.\n" +
+        "⚠️ CRITICAL: You can ONLY select recipes from the [AVAILABLE RECIPES] list below. Do NOT create new recipe names!\n\n" +
+        "User Information:\n" +
+        "Fitness Goal: " + goal + "\n" +
+        "Dietary Preference: " + dietary + "\n" +
+        "Allergens: " + allergens + "\n" +
+        "Height: " + Optional.ofNullable(profile.getHeightCm()).orElse(170) + " cm\n" +
+        "Weight: " + Optional.ofNullable(profile.getWeightKg()).orElse(65.0) + " kg\n" +
+        "Training Summary: " + trainingSummary + "\n" +
+        "Daily Nutrition Target: " +
+        "Calories=" + target.calories() + "kcal, " +
+        "Protein=" + target.protein() + "g, " +
+        "Carbs=" + target.carbs() + "g, " +
+        "Fat=" + target.fat() + "g\n" +
+        recipeList.toString() + "\n" +
+        "Requirements:\n" +
+        "1. Return JSON format: {\"days\":[{\"dayNumber\":1,\"meals\":[{\"type\":\"breakfast\",\"recipeName\":\"Grilled Chicken Salad\"}]}]}\n" +
+        "2. recipeName MUST exactly match a recipe name from the [AVAILABLE RECIPES] list above!\n" +
+        "3. Do NOT include calories/protein/carbs/fat fields - the system will fetch these from the database automatically\n" +
+        "4. Each day must have 4 meals with types: breakfast, lunch, dinner, snack\n" +
+        "5. Select recipes to meet nutrition targets (within 10% tolerance)\n" +
+        "6. Avoid repeating the same recipe on consecutive days - ensure variety\n" +
+        "7. Filter out recipes that conflict with the user's dietary preferences and allergens\n" +
+        "8. Return only valid JSON without any markdown code blocks or extra text";
   }
 
   private MealPlanResponse parseMealPlanResponse(UUID userId, NutritionTarget target, String rawContent)
@@ -281,36 +312,55 @@ public class SmartRecipeService {
     for (JsonNode dayNode : root.get("days")) {
       int dayNumber = dayNode.path("dayNumber").asInt(days.size() + 1);
       List<MealEntry> meals = new ArrayList<>();
+
       for (JsonNode mealNode : dayNode.withArray("meals")) {
         String mealType = mealNode.path("type").asText("meal").toLowerCase(Locale.CHINA);
         String recipeName = mealNode.path("recipeName").asText(null);
-        Integer calories = mealNode.hasNonNull("calories") ? mealNode.get("calories").asInt() : null;
-        Double protein = mealNode.hasNonNull("protein") ? mealNode.get("protein").asDouble() : null;
-        Double carbs = mealNode.hasNonNull("carbs") ? mealNode.get("carbs").asDouble() : null;
-        Double fat = mealNode.hasNonNull("fat") ? mealNode.get("fat").asDouble() : null;
 
-        MealEntry entry = buildMealEntry(recipeName, mealType, calories, protein, carbs, fat);
+        // Look up recipe in database - AI must select from available recipes
+        Optional<Recipe> recipeOpt = lookupRecipe(recipeName);
+
+        if (recipeOpt.isEmpty()) {
+          log.warn("AI returned recipe not in database: '{}'. Skipping this meal.", recipeName);
+          continue; // Skip meals with invalid recipes
+        }
+
+        Recipe recipe = recipeOpt.get();
+
+        // Extract nutrition from database (not from AI response)
+        Integer calories = extractNutritionInt(recipe, "calories", 350);
+        Double protein = extractNutritionDouble(recipe, "protein", 20.0);
+        Double carbs = extractNutritionDouble(recipe, "carbs", 40.0);
+        Double fat = extractNutritionDouble(recipe, "fat", 12.0);
+
+        MealEntry entry = new MealEntry(
+            mealType,
+            recipe.getId().toString(),
+            recipe.getTitle(),
+            calories,
+            protein,
+            carbs,
+            fat,
+            recipe.getDifficulty()
+        );
         meals.add(entry);
       }
-      days.add(new MealPlanDay(dayNumber, meals));
+
+      // Only add days with at least 3 meals (breakfast, lunch, dinner minimum)
+      if (meals.size() >= 3) {
+        days.add(new MealPlanDay(dayNumber, meals));
+      } else {
+        log.warn("Day {} has only {} meals (need at least 3). Skipping day.", dayNumber, meals.size());
+      }
+    }
+
+    // If AI generated insufficient valid days, return null to trigger fallback
+    if (days.size() < 5) {
+      log.warn("AI generated only {} valid days (need at least 5). Will use fallback plan.", days.size());
+      return null;
     }
 
     return new MealPlanResponse(target, days);
-  }
-
-  private MealEntry buildMealEntry(String recipeName, String mealType, Integer calories, Double protein,
-      Double carbs, Double fat) {
-    Optional<Recipe> recipeOpt = lookupRecipe(recipeName);
-    return new MealEntry(
-        mealType,
-        recipeOpt.map(recipe -> recipe.getId().toString()).orElse(null),
-        recipeName,
-        calories,
-        protein,
-        carbs,
-        fat,
-        recipeOpt.map(Recipe::getDifficulty).orElse(null)
-    );
   }
 
   private Optional<Recipe> lookupRecipe(String recipeName) {
@@ -382,6 +432,28 @@ public class SmartRecipeService {
       return trimmed.substring(start, end + 1);
     }
     return trimmed;
+  }
+
+  /**
+   * Extract integer nutrition value from Recipe's nutritionSummary JsonNode
+   */
+  private int extractNutritionInt(Recipe recipe, String field, int defaultValue) {
+    JsonNode nutritionNode = recipe.getNutritionSummary();
+    if (nutritionNode == null || !nutritionNode.has(field)) {
+      return defaultValue;
+    }
+    return nutritionNode.get(field).asInt(defaultValue);
+  }
+
+  /**
+   * Extract double nutrition value from Recipe's nutritionSummary JsonNode
+   */
+  private double extractNutritionDouble(Recipe recipe, String field, double defaultValue) {
+    JsonNode nutritionNode = recipe.getNutritionSummary();
+    if (nutritionNode == null || !nutritionNode.has(field)) {
+      return defaultValue;
+    }
+    return nutritionNode.get(field).asDouble(defaultValue);
   }
 
   public record NutritionTarget(int calories, int protein, int carbs, int fat) {}

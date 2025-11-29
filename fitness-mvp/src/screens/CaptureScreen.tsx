@@ -191,7 +191,7 @@ export const CaptureScreen = () => {
   const handleSaveWorkout = useCallback(
     async (id: string) => {
       if (!userId) {
-        showSnackbar('请先登录以保存内容', { variant: 'error' });
+        showSnackbar('Please log in to save content', { variant: 'error' });
         return;
       }
       try {
@@ -211,7 +211,7 @@ export const CaptureScreen = () => {
   const handleSaveRecipe = useCallback(
     async (id: string) => {
       if (!userId) {
-        showSnackbar('请先登录以保存内容', { variant: 'error' });
+        showSnackbar('Please log in to save content', { variant: 'error' });
         return;
       }
       try {

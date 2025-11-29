@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api } from './apiClient';
 import { MealLogResponse, NutritionSummaryResponse, NutritionInsightResponse } from '@/types/mealPlan';
 
 export interface LogMealPayload {
@@ -16,35 +16,29 @@ export interface LogMealPayload {
 }
 
 const logMeal = async (userId: string, payload: LogMealPayload): Promise<MealLogResponse> => {
-  const response = await api.post<MealLogResponse>('/api/v1/nutrition/meals', {
+  return await api.post<MealLogResponse>('/api/v1/nutrition/meals', {
     userId,
     consumedAt: new Date().toISOString(),
     ...payload,
   });
-  return response.data;
 };
 
 const getDailySummary = async (userId: string, date?: string): Promise<NutritionSummaryResponse> => {
-  const params: Record<string, string> = { userId };
-  if (date) params.date = date;
-  const response = await api.get<NutritionSummaryResponse>('/api/v1/nutrition/summary/daily', { params });
-  return response.data;
+  const queryParams = new URLSearchParams({ userId });
+  if (date) queryParams.append('date', date);
+  return await api.get<NutritionSummaryResponse>(`/api/v1/nutrition/summary/daily?${queryParams}`);
 };
 
 const getWeeklySummary = async (userId: string, weekStart?: string): Promise<NutritionSummaryResponse> => {
-  const params: Record<string, string> = { userId };
-  if (weekStart) params.weekStart = weekStart;
-  const response = await api.get<NutritionSummaryResponse>('/api/v1/nutrition/summary/weekly', { params });
-  return response.data;
+  const queryParams = new URLSearchParams({ userId });
+  if (weekStart) queryParams.append('weekStart', weekStart);
+  return await api.get<NutritionSummaryResponse>(`/api/v1/nutrition/summary/weekly?${queryParams}`);
 };
 
 const getWeeklyInsight = async (userId: string, weekStart?: string): Promise<NutritionInsightResponse> => {
-  const params: Record<string, string> = { userId };
-  if (weekStart) params.weekStart = weekStart;
-  const response = await api.get<NutritionInsightResponse>('/api/v1/nutrition/insights/weekly', {
-    params,
-  });
-  return response.data;
+  const queryParams = new URLSearchParams({ userId });
+  if (weekStart) queryParams.append('weekStart', weekStart);
+  return await api.get<NutritionInsightResponse>(`/api/v1/nutrition/insights/weekly?${queryParams}`);
 };
 
 export default {

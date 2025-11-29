@@ -119,6 +119,7 @@ export const BookmarkButton = ({
   }));
 
   const iconColor = isSaved ? color : 'rgba(0, 0, 0, 0.54)';
+  const styles = getStyles();
 
   return (
     <AnimatedPressable
@@ -147,7 +148,8 @@ export const BookmarkButton = ({
   );
 };
 
-const styles = StyleSheet.create({
+// Use getter function to avoid module initialization order issues
+const getStyles = () => StyleSheet.create({
   container: {
     padding: spacing.xs,
     borderRadius: radii.md,

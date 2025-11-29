@@ -7,3 +7,12 @@ export { default as userApi } from './userApi';
 // Re-export all exports from goalsApi
 export * from './goalsApi';
 export * from './notificationService';
+
+// Export image recognition API
+export * from './imageRecognitionApi';
+
+// Export saved items API
+export * from './savedItemsApi';
+
+// Export API client
+export { api } from './apiClient';

@@ -1,18 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { SafeAreaWrapper, Container, Card, Text, Button, WorkoutCard, RecipeCard } from '@/components';
 import { spacing } from '@/utils';
 import {
-  DEFAULT_SAVED_PAGE_SIZE,
   useSavedWorkouts,
   useSaveWorkout,
   useSavedRecipes,
   useSaveRecipe,
   useRemoveWorkout,
   useRemoveRecipe,
-  DEFAULT_WORKOUT_SORT,
-  DEFAULT_RECIPE_SORT,
 } from '@/services';
 import useCurrentUser from '@/hooks/useCurrentUser';
 
@@ -20,23 +17,23 @@ export const ResultsScreen = () => {
   const route = useRoute<any>();
   const currentUser = useCurrentUser();
   const userId = currentUser.data?.userId;
-  const savedWorkouts = useSavedWorkouts(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_WORKOUT_SORT);
-  const saveWorkout = useSaveWorkout(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_WORKOUT_SORT);
-  const savedRecipes = useSavedRecipes(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_RECIPE_SORT);
-  const saveRecipe = useSaveRecipe(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_RECIPE_SORT);
-  const removeWorkout = useRemoveWorkout(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_WORKOUT_SORT);
-  const removeRecipe = useRemoveRecipe(userId, DEFAULT_SAVED_PAGE_SIZE, DEFAULT_RECIPE_SORT);
+  const savedWorkouts = useSavedWorkouts(userId);
+  const saveWorkout = useSaveWorkout(userId);
+  const savedRecipes = useSavedRecipes(userId);
+  const saveRecipe = useSaveRecipe(userId);
+  const removeWorkout = useRemoveWorkout(userId);
+  const removeRecipe = useRemoveRecipe(userId);
   const [savedTab, setSavedTab] = useState<'workouts' | 'recipes'>('workouts');
 
   const hasRouteWorkouts = Array.isArray(route.params?.workouts) && route.params.workouts.length > 0;
   const hasRouteRecipes = Array.isArray(route.params?.recipes) && route.params.recipes.length > 0;
 
   const savedWorkoutItems = useMemo(
-    () => savedWorkouts.data?.pages.flatMap((page) => page.items) ?? [],
+    () => savedWorkouts.data ?? [],
     [savedWorkouts.data],
   );
   const savedRecipeItems = useMemo(
-    () => savedRecipes.data?.pages.flatMap((page) => page.items) ?? [],
+    () => savedRecipes.data ?? [],
     [savedRecipes.data],
   );
 
@@ -80,8 +77,13 @@ export const ResultsScreen = () => {
 
   return (
     <SafeAreaWrapper>
-      <Container>
-        <View style={styles.header}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        style={styles.scrollView}
+      >
+        <Container>
+          <View style={styles.header}>
           <Image source={{ uri: 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg' }} style={styles.thumb} />
           <View style={{ flex: 1 }}>
             <Text variant="heading2" weight="bold">
@@ -134,19 +136,19 @@ export const ResultsScreen = () => {
                   <RecipeCard
                     item={it}
                     isSaved={isSaved}
-                    onSave={(id) => saveRecipe.mutateAsync(id)}
-                    onRemove={(id) => removeRecipe.mutateAsync(id)}
+                    onSave={(id) => saveRecipe.mutateAsync(id).then(() => true)}
+                    onRemove={(id) => removeRecipe.mutateAsync(id).then(() => true)}
                   />
                 ) : (
                   <WorkoutCard
                     item={it}
                     isSaved={isSaved}
-                    onSave={(id) => saveWorkout.mutateAsync(id)}
-                    onRemove={(id) => removeWorkout.mutateAsync(id)}
+                    onSave={(id) => saveWorkout.mutateAsync(id).then(() => true)}
+                    onRemove={(id) => removeWorkout.mutateAsync(id).then(() => true)}
                   />
                 )}
                 {isSaved && (
-                  <Text variant="caption" style={styles.savedTag}>已保存到你的收藏</Text>
+                  <Text variant="caption" style={styles.savedTag}>Saved to your library</Text>
                 )}
               </View>
             );
@@ -160,12 +162,20 @@ export const ResultsScreen = () => {
             <Button title="Browse All" />
           </View>
         </View>
-      </Container>
+        </Container>
+      </ScrollView>
     </SafeAreaWrapper>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.xl,
+  },
   header: {
     flexDirection: 'row',
     gap: spacing.md,

@@ -16,14 +16,40 @@ export interface WorkoutCard {
   lastValidatedAt?: string;
 }
 
+export interface RecipeIngredient {
+  name: string;
+  quantity?: number;
+  unit?: string;
+}
+
+/**
+ * Image URLs for recipe images at different sizes.
+ * Used with Spoonacular API images.
+ */
+export interface RecipeImageUrls {
+  /** Thumbnail for lists (240x150) */
+  thumb: string;
+  /** Medium size for cards (480x360) */
+  medium: string;
+  /** Large size for detail pages (636x393) */
+  large: string;
+  /** Original source URL if available */
+  original?: string;
+}
+
 export interface RecipeCard {
   id: string;
   title: string;
+  /** Legacy single image URL (for backward compatibility) */
   imageUrl?: string;
+  /** Image URLs for different sizes (preferred) */
+  image?: RecipeImageUrls;
   timeMinutes: number;
   difficulty: 'easy' | 'medium' | 'hard';
   calories?: number;
   nutritionSummary?: Record<string, unknown> | null;
+  ingredients?: RecipeIngredient[];
+  steps?: string[] | Record<string, unknown> | null;
   tags?: string[];
   isAiGenerated?: boolean;
 }

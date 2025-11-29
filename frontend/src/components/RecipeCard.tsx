@@ -1,33 +1,122 @@
-import React, { useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useSnackbar } from '@/components';
+import { useNavigation } from '@react-navigation/native';
+import { useSnackbar, BookmarkButton, Button, Text } from '@/components';
+import { SmartRecipeImage } from './RecipeImage';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { colors, radii, spacing, useResponsiveValue } from '@/utils';
+import type { RecipeCard as Recipe, RecipeImageUrls } from '@/types';
 
-import { BookmarkButton, Button, Card, Text } from '@/components';
-import { radii, spacing, useResponsiveValue } from '@/utils';
-import type { RecipeCard as Recipe } from '@/types';
+/**
+ * Build a fallback image object from a single URL.
+ * Used when recipe.image is not available.
+ */
+function buildFallbackImageUrls(url: string): RecipeImageUrls {
+  return {
+    thumb: url,
+    medium: url,
+    large: url,
+  };
+}
+
+// Food image collection from Unsplash - curated list of food photos
+const FOOD_IMAGES = [
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800', // colorful salad
+  'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=800', // pancakes
+  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=800', // salad bowl
+  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800', // pizza
+  'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=800', // fruit bowl
+  'https://images.unsplash.com/photo-1482049016gy-c69e7f5f7e42?w=800', // healthy bowl
+  'https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=800', // french toast
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800', // food platter
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800', // veggie bowl
+  'https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=800', // avocado toast
+  'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=800', // pasta
+  'https://images.unsplash.com/photo-1547592180-85f173990554?w=800', // healthy meal
+  'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800', // cooking ingredients
+  'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800', // salmon
+  'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=800', // vegetables
+  'https://images.unsplash.com/photo-1485921325833-c519f76c4927?w=800', // fish
+  'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=800', // grilled chicken
+  'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=800', // chicken dish
+  'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=800', // food spread
+  'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=800', // steak
+  'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=800', // pasta bake
+  'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=800', // grilled meat
+  'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=800', // breakfast
+  'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=800', // soup
+  'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800', // asian food
+  'https://images.unsplash.com/photo-1432139509613-5c4255815697?w=800', // tacos
+  'https://images.unsplash.com/photo-1600891964092-4316c288032e?w=800', // beef
+  'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=800', // spaghetti
+  'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800', // eggs benedict
+  'https://images.unsplash.com/photo-1551326844-4df70f78d0e9?w=800', // korean food
+];
+
+/**
+ * Generate a unique placeholder image for each recipe.
+ * Uses recipe ID to select from a curated list of food images.
+ * Ensures each recipe gets a unique but stable image.
+ */
+const getPlaceholderImage = (id: string, title: string): RecipeImageUrls => {
+  // Create a hash from the recipe ID for consistent selection
+  const seed = id || title;
+  const hash = seed.split('').reduce((acc, char, idx) => {
+    return acc + (char.codePointAt(0) || 0) * (idx + 1);
+  }, 0);
+  
+  // Select image from the pool based on hash
+  const url = FOOD_IMAGES[hash % FOOD_IMAGES.length];
+  
+  return buildFallbackImageUrls(url);
+};
 
 type Props = {
   item: Recipe;
   onSave?: (id: string) => Promise<boolean> | boolean | void;
   onRemove?: (id: string) => Promise<boolean> | boolean | void;
-  onStart?: (id: string) => void;
+  onStart?: (item: Recipe) => void;
   isSaved?: boolean;
+  /** Image variant to use - 'thumb' for lists, 'medium' for cards */
+  imageVariant?: 'thumb' | 'medium' | 'large';
 };
 
-export const RecipeCard = ({ item, onSave, onRemove, onStart, isSaved }: Props) => {
+/**
+ * RecipeCard - Material Design 3 Style
+ * Clean design, purple palette, micro-animations
+ * Uses optimized images with small thumbnails for lists.
+ */
+export const RecipeCard = ({ item, onSave, onRemove, onStart, isSaved, imageVariant = 'thumb' }: Props) => {
   const [saving, setSaving] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
   const { showSnackbar } = useSnackbar();
-  const time = item.timeMinutes ? `${item.timeMinutes} min` : '—';
-  const difficulty = item.difficulty ? item.difficulty.toUpperCase() : '—';
+  const navigation = useNavigation<any>();
 
-  // Responsive image height
+  const time = item.timeMinutes ? `${item.timeMinutes} min` : '—';
+  const difficulty = item.difficulty?.toUpperCase() ?? '—';
+  const calories = item.calories ? `${item.calories} cal` : null;
+
+  // Resolve image URLs with fallback
+  const imageUrls = useMemo((): RecipeImageUrls => {
+    // Prefer the new image object with variants
+    if (item.image) {
+      return item.image;
+    }
+    // Fall back to legacy imageUrl
+    if (item.imageUrl) {
+      return buildFallbackImageUrls(item.imageUrl);
+    }
+    // Use unique placeholder based on recipe ID
+    return getPlaceholderImage(item.id, item.title);
+  }, [item.image, item.imageUrl, item.id, item.title]);
+
   const imageHeight = useResponsiveValue({
-    mobile: 200,
-    tablet: 240,
-    desktop: 280,
-    wide: 320,
+    mobile: 160,
+    tablet: 180,
+    desktop: 200,
+    wide: 220,
   });
 
   const handleBookmark = async () => {
@@ -36,80 +125,147 @@ export const RecipeCard = ({ item, onSave, onRemove, onStart, isSaved }: Props) 
     if (!handler || saving) return;
     try {
       setSaving(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       const result = await Promise.resolve(handler(item.id));
       const ok = result === undefined ? true : Boolean(result);
       if (ok) {
-        showSnackbar(removeAction ? 'Removed from your recipes' : 'Saved to your recipes', {
-          variant: 'success',
-        });
+        showSnackbar(removeAction ? 'Removed' : 'Saved!', { variant: 'success' });
       } else {
-        // Error haptic feedback
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        showSnackbar(removeAction ? 'Failed to remove' : 'Failed to save', {
-          variant: 'error',
-          actionLabel: 'Retry',
-          onAction: handleBookmark,
-        });
+        showSnackbar('Failed', { variant: 'error' });
       }
     } catch (e: any) {
-      // Error haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      showSnackbar(getFriendlyErrorMessage(e), {
-        variant: 'error',
-        actionLabel: 'Retry',
-        onAction: handleBookmark,
-      });
+      showSnackbar(getFriendlyErrorMessage(e), { variant: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <Card style={styles.card}>
-      {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={[styles.image, { height: imageHeight }]} />
-      ) : (
-        <View style={[styles.image, styles.imagePlaceholder, { height: imageHeight }]} />
-      )}
+  const handleCardPress = () => {
+    if (onStart) {
+      onStart(item);
+    } else {
+      // Navigate to recipe detail screen
+      navigation.navigate('RecipeDetail', { recipe: item });
+    }
+  };
 
-      <View style={{ gap: spacing.xs }}>
-        <View style={styles.titleRow}>
-          <Text variant="body" weight="bold" numberOfLines={2} style={{ flex: 1 }}>{item.title}</Text>
+  // Reuse handleCardPress for button as behavior is identical
+  const handleStartPress = handleCardPress;
+
+  const dark = colors.dark;
+
+  return (
+    <View
+      style={[
+        styles.card,
+        {
+          transform: [{ scale: isPressed ? 0.98 : 1 }],
+        },
+      ]}
+    >
+      {/* Image - Clickable area */}
+      <Pressable
+        onPressIn={() => setIsPressed(true)}
+        onPressOut={() => setIsPressed(false)}
+        onPress={handleCardPress}
+        style={[styles.imageContainer, { height: imageHeight }]}
+      >
+        {/* Use SmartRecipeImage for optimized loading */}
+        <SmartRecipeImage 
+          image={imageUrls} 
+          variant={imageVariant}
+          style={styles.image}
+          borderRadius={0}
+          accessibilityLabel={`${item.title} recipe image`}
+        />
+
+        {/* Gradient */}
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.6)']} style={styles.gradient} />
+
+        {/* Chips */}
+        <View style={styles.chipRow}>
           {item.isAiGenerated && (
-            <View style={styles.aiBadge}>
-              <Text variant="caption" style={styles.aiBadgeText}>AI</Text>
+            <View style={[styles.chip, { backgroundColor: dark.secondary }]}>
+              <Text variant="label" style={{ color: '#FFF', fontSize: 10 }}>AI</Text>
             </View>
           )}
+          <View style={[styles.chip, { backgroundColor: dark.primary }]}>
+            <Text variant="label" style={{ color: '#FFF', fontSize: 11 }}>{difficulty}</Text>
+          </View>
         </View>
-        <Text variant="caption" style={{ opacity: 0.8 }}>{time} • {difficulty}</Text>
-      </View>
+      </Pressable>
 
-      <View style={styles.row}>
-        <Button title="Start Cooking" onPress={() => onStart?.(item.id)} />
-        <BookmarkButton
-          isSaved={!!isSaved}
-          isLoading={saving}
-          onPress={handleBookmark}
-          color="#FF6B6B"
-          accessibilityLabel={isSaved ? 'Remove recipe from library' : 'Save recipe to library'}
-        />
+      {/* Content */}
+      <View style={styles.content}>
+        <Text variant="body" weight="semibold" numberOfLines={2} style={{ color: dark.textPrimary }}>
+          {item.title}
+        </Text>
+
+        <Text variant="caption" style={{ color: dark.textSecondary }}>
+          {time}{calories ? ` · ${calories}` : ''}
+        </Text>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <Button
+            title="Start"
+            variant="primary"
+            size="small"
+            onPress={handleStartPress}
+          />
+          <BookmarkButton
+            isSaved={!!isSaved}
+            isLoading={saving}
+            onPress={handleBookmark}
+            color={dark.secondary}
+          />
+        </View>
       </View>
-    </Card>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: { gap: spacing.sm },
-  image: { width: '100%', height: 200, borderRadius: radii.lg },
-  imagePlaceholder: { backgroundColor: 'rgba(0,0,0,0.08)' },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs },
-  aiBadge: {
-    backgroundColor: '#9333EA',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: radii.sm,
-    marginTop: 2,
+  card: {
+    backgroundColor: colors.dark.surface,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' && {
+      transition: 'transform 0.15s ease',
+    }),
   },
-  aiBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  imageContainer: {
+    position: 'relative',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  chipRow: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.sm,
+  },
+  content: {
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
 });

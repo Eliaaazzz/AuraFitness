@@ -5,3 +5,4 @@ export * from './imageHelpers';
 export * from './system';
 export * from './materialMotion';
 export * from './responsive';
+export * from './spoonacular';

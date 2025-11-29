@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Image, Linking, Platform, StyleSheet, View } from 'react-native';
+import { Image, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useSnackbar } from '@/components';
+import { useSnackbar, BookmarkButton, Button, Text } from '@/components';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-
-import { BookmarkButton, Button, Card, Text } from '@/components';
-import { spacing, radii, useResponsiveValue } from '@/utils';
+import { colors, spacing, radii, useResponsiveValue } from '@/utils';
 import type { WorkoutCard as Workout } from '@/types';
 
 type Props = {
@@ -28,19 +27,24 @@ const openYouTube = async (youtubeId?: string) => {
   Linking.openURL(webUrl);
 };
 
+/**
+ * WorkoutCard - Material Design 3 Style
+ * Clean design, purple palette, micro-animations
+ */
 export const WorkoutCard = ({ item, onSave, onRemove, isSaved }: Props) => {
   const [saving, setSaving] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
   const { showSnackbar } = useSnackbar();
+  
   const level = item.level?.toUpperCase?.() ?? '—';
   const duration = item.durationMinutes ? `${item.durationMinutes} min` : '—';
-  const equipment = (item.equipment ?? []).join(', ');
+  const equipment = (item.equipment ?? []).slice(0, 2).join(' · ');
 
-  // Responsive image height
   const imageHeight = useResponsiveValue({
-    mobile: 180,
-    tablet: 220,
-    desktop: 260,
-    wide: 300,
+    mobile: 160,
+    tablet: 180,
+    desktop: 200,
+    wide: 220,
   });
 
   const handleBookmark = async () => {
@@ -49,65 +53,122 @@ export const WorkoutCard = ({ item, onSave, onRemove, isSaved }: Props) => {
     if (!handler || saving) return;
     try {
       setSaving(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       const result = await Promise.resolve(handler(item.id));
       const ok = result === undefined ? true : Boolean(result);
       if (ok) {
-        showSnackbar(removeAction ? 'Removed from your workouts' : 'Saved to your workouts', {
-          variant: 'success',
-        });
+        showSnackbar(removeAction ? 'Removed' : 'Saved!', { variant: 'success' });
       } else {
-        // Error haptic feedback
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        showSnackbar(removeAction ? 'Failed to remove' : 'Failed to save', {
-          variant: 'error',
-          actionLabel: 'Retry',
-          onAction: handleBookmark,
-        });
+        showSnackbar('Failed', { variant: 'error' });
       }
     } catch (e: any) {
-      // Error haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      showSnackbar(getFriendlyErrorMessage(e), {
-        variant: 'error',
-        actionLabel: 'Retry',
-        onAction: handleBookmark,
-      });
+      showSnackbar(getFriendlyErrorMessage(e), { variant: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
+  const dark = colors.dark;
+
   return (
-    <Card style={styles.card}>
-      {item.thumbnailUrl ? (
-        <Image source={{ uri: item.thumbnailUrl }} style={[styles.image, { height: imageHeight }]} />
-      ) : (
-        <View style={[styles.image, styles.imagePlaceholder, { height: imageHeight }]} />
-      )}
-
-      <View style={{ gap: spacing.xs }}>
-        <Text variant="body" weight="bold" numberOfLines={2}>{item.title}</Text>
-        <Text variant="caption" style={{ opacity: 0.8 }}>{duration} • {level}</Text>
-        {!!equipment && <Text variant="caption" style={{ opacity: 0.8 }}>Equipment: {equipment}</Text>}
-      </View>
-
-      <View style={styles.row}>
-        <Button title="▶ Watch Video" onPress={() => openYouTube(item.youtubeId)} />
-        <BookmarkButton
-          isSaved={!!isSaved}
-          isLoading={saving}
-          onPress={handleBookmark}
-          color="#4ECDC4"
-          accessibilityLabel={isSaved ? 'Remove workout from library' : 'Save workout to library'}
+    <Pressable
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      style={[
+        styles.card,
+        {
+          transform: [{ scale: isPressed ? 0.98 : 1 }],
+        },
+      ]}
+    >
+      {/* Image */}
+      <View style={[styles.imageContainer, { height: imageHeight }]}>
+        {item.thumbnailUrl ? (
+          <Image source={{ uri: item.thumbnailUrl }} style={styles.image} resizeMode="cover" />
+        ) : (
+          <View style={[styles.image, { backgroundColor: dark.surfaceVariant }]} />
+        )}
+        
+        {/* Gradient overlay */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.6)']}
+          style={styles.gradient}
         />
+        
+        {/* Level chip */}
+        <View style={styles.chip}>
+          <Text variant="label" style={{ color: '#FFF', fontSize: 11 }}>{level}</Text>
+        </View>
       </View>
-    </Card>
+
+      {/* Content */}
+      <View style={styles.content}>
+        <Text variant="body" weight="semibold" numberOfLines={2} style={{ color: dark.textPrimary }}>
+          {item.title}
+        </Text>
+        
+        <Text variant="caption" style={{ color: dark.textSecondary }}>
+          {duration}{equipment ? ` · ${equipment}` : ''}
+        </Text>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <Button
+            title="Watch"
+            variant="primary"
+            size="small"
+            onPress={() => openYouTube(item.youtubeId)}
+          />
+          <BookmarkButton
+            isSaved={!!isSaved}
+            isLoading={saving}
+            onPress={handleBookmark}
+            color={dark.primary}
+          />
+        </View>
+      </View>
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
-  card: { gap: spacing.sm },
-  image: { width: '100%', height: 180, borderRadius: radii.lg },
-  imagePlaceholder: { backgroundColor: 'rgba(0,0,0,0.08)' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  card: {
+    backgroundColor: colors.dark.surface,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' && {
+      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+    }),
+  },
+  imageContainer: {
+    position: 'relative',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  chip: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: colors.dark.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.sm,
+  },
+  content: {
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
 });

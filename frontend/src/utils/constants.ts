@@ -1,16 +1,32 @@
 export const APP_NAME = 'FitnessMVP';
 
+/**
+ * Material Design 3 - Purple Color Scheme
+ */
 export const BRAND_COLORS = {
-  primary: '#FF6B6B',
-  secondary: '#4ECDC4',
-  background: '#0D1B2A',
-  surface: '#1B263B',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#A9B4C2',
-  tabInactive: '#617187',
+  // Primary - Violet
+  primary: '#A78BFA',        // Violet-400
+  primaryDark: '#8B5CF6',    // Violet-500
+  
+  // Secondary - Pink
+  secondary: '#F472B6',      // Pink-400
+  
+  // Surfaces
+  background: '#121212',
+  surface: '#1E1E1E',
+  surfaceVariant: '#2D2D2D',
+  
+  // Text
+  textPrimary: '#F9FAFB',
+  textSecondary: '#D1D5DB',
+  textMuted: '#9CA3AF',
+  
+  // Tab bar
+  tabActive: '#A78BFA',
+  tabInactive: '#9CA3AF',
 };
 
 export const TAB_ICON_SIZE = {
-  focused: 28,
-  default: 24,
+  focused: 26,
+  default: 22,
 };
